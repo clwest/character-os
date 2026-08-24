@@ -4983,6 +4983,430 @@ of §56-§65.
   - Q280.5-1 execution: `7f83b23`.
   - Q280.5-1 SHA trailer: `cfe287a`.
   - v1 UX design slice: `a3d294d`.
+
+---
+
+## §69 v1 IMPLEMENTATION slice — "Where could this story go next?"
+
+Approved from §67 Option A⁶. **Implementation.** Landed as a
+single reversible slice. Reuses §61-§62 design shapes with the
+adjustments noted below.
+
+### 69.1 Implementation orientation
+
+- Baseline SHA: `b19d030`.
+- Working method: ORIENT → smallest code surface → smallest
+  change → focused regression coverage → run tests → inspect
+  actual operator-visible result. §67 A⁶ authorized implement-
+  as-designed; no design revision during implementation.
+- Constraint honored throughout: **no implementation
+  vocabulary in the operator-facing surface** (§56 HARD UX
+  CONSTRAINT). Guarded by an explicit test on both frontend
+  and backend.
+
+### 69.2 Exact surfaces changed
+
+**New files:**
+
+- `shell/apps/universe/services/__init__.py` — package init
+  re-exporting the service callable + error class.
+- `shell/apps/universe/services/next_episode_suggestions.py`
+  — service module (~350 lines including docstrings). Lifts
+  the Q280.5-1 probe logic into production; Redis-backed
+  memoization via Django's default cache alias; empty-
+  substrate short-circuit; upstream-error typed exception.
+- `shell/apps/universe/tests/test_next_episode_suggestions.py`
+  — 16 tests covering service + endpoint contracts.
+- `web/src/components/possible-next-episodes.tsx` — component
+  (~170 lines). Split into an outer wrapper that gates the
+  hook subscription on `enabled` (preserves existing test
+  mocks that stub `@/lib/api/universes` without knowing about
+  the new hook) and an inner component that owns the query.
+- `web/src/components/possible-next-episodes.test.tsx` — 8
+  render-state + interaction tests including a vocabulary-
+  leak invariant.
+
+**Modified files:**
+
+- `shell/apps/universe/views.py` — added
+  `UniverseViewSet.next_episode_suggestions` action
+  (`GET /api/universes/:id/next-episode-suggestions/`).
+- `web/src/lib/api/universes.ts` — added
+  `getNextEpisodeSuggestions` fetch fn and
+  `useNextEpisodeSuggestions` react-query hook. Response
+  shape validated with zod.
+- `web/src/routes/workspace/universes.$id.episodes.tsx` —
+  imported and rendered `<PossibleNextEpisodes>` above the
+  existing create-form / episode list, gated on
+  `activeEpisodeCount >= 1` AND `!creating`. Added
+  `suggestionChipVisible` state + `topicRef` for focus
+  management. Added `handleUseSuggestion` callback that
+  opens the existing create form pre-filled with the
+  suggestion text.
+
+**No other files modified.** No new migrations. No schema
+change. No memory-kind change. No synthesis-substrate change.
+No writing-contract change. No new provider. No changes to
+the composition creation flow, the Episode detail page, or
+any other route.
+
+### 69.3 Operator flow (as-built)
+
+1. Operator navigates to `/workspace/universes/:id/episodes`.
+2. If the Universe has zero non-archived Episodes: nothing new
+   appears; the existing empty-state copy renders unchanged.
+3. If the Universe has ≥ 1 non-archived Episode: a section
+   headed **"Where could this story go next?"** appears
+   between the page header and the existing `[New Episode]`
+   button. It shows:
+   - Header row: title + subtle sparkle glyph + "Different
+     ideas" refresh button (label chosen deliberately —
+     ordinary language, not "regenerate").
+   - Intro line: *"A few ideas from what has happened in this
+     story so far. Pick one, ignore them, or write your own
+     below."*
+   - Three suggestion cards, each showing a one-sentence
+     idea + `[Use this]` button. Never padded; if the model
+     returns fewer than three, fewer cards render.
+4. Loading state: three skeleton cards + *"Looking for
+   ideas…"*.
+5. Error state: single card *"Couldn't load ideas right now."*
+   + `[Try again]` button.
+6. Clicking `[Use this]` opens the existing New Episode inline
+   form pre-filled with the suggestion text as
+   `operator_topic`. Above the form appears a small gold-
+   tinted chip: *"Started from an idea. Edit anything freely
+   — nothing is saved yet."* + `[×]` dismisses the chip only
+   (textarea contents are the operator's to edit or discard).
+7. Focus lands in the topic textarea with the caret at the
+   end of the pre-fill — operator can immediately edit.
+8. Cast field is NOT auto-populated; the operator picks who's
+   in the Episode.
+9. Existing `[✨ New Episode]` button is preserved as the
+   primary CTA; clicking it opens an empty form (unchanged
+   behavior).
+10. Submitting the form calls the existing
+    `POST /api/episodes/` unchanged — the suggestion origin is
+    NOT persisted; the resulting Episode is a normal Episode.
+
+### 69.4 UX wording chosen
+
+Every operator-visible string reviewed for the §56 HARD UX
+CONSTRAINT. Concrete choices:
+
+| Surface | Chosen wording | Alternatives rejected |
+|---|---|---|
+| Section heading | *"Where could this story go next?"* | *"Suggested next Episodes"*, *"AI-generated directions"*, *"Story arc suggestions"* (implementation vocabulary) |
+| Intro line | *"A few ideas from what has happened in this story so far. Pick one, ignore them, or write your own below."* | Anything mentioning "based on memory retrieval", "generated from your prior Episodes", "AI analysis" |
+| Refresh button | *"Different ideas"* + `RefreshCw` icon | *"Regenerate"*, *"Retry"*, *"New batch"*, *"Refresh suggestions"* |
+| Loading | *"Looking for ideas…"* | *"Generating…"*, *"Contacting model…"* |
+| Error | *"Couldn't load ideas right now."* / *"Try again"* | *"LLM provider unavailable"*, *"Suggestion service error"* |
+| Per-card action | *"Use this"* | *"Select"*, *"Choose"*, *"Pick this direction"* |
+| Post-select chip | *"Started from an idea. Edit anything freely — nothing is saved yet."* | *"Suggested topic"*, *"Prefilled from AI suggestion"*, *"Model-generated topic"* |
+
+### 69.5 Backend endpoint contract
+
+`GET /api/universes/:id/next-episode-suggestions/`
+
+Query params:
+- `n` (int, optional, default 3, silently clamped to
+  [1, 5]) — number of suggestions.
+- `refresh` (bool, optional, default false) — bypass server
+  cache.
+
+Responses:
+- `200 OK` — `{"suggestions": [{"text": "..."}, ...],
+  "substrate_summary": {...}, "generated_at": "...",
+  "model": "...", "cache": {"hit": bool, "ttl_seconds": int},
+  ...}`. Empty `suggestions` list is a **valid 200 response**
+  when the Universe has zero eligible Episodes; the SPA
+  hides the surface without rendering an error.
+- `404 Not Found` — Universe not visible to caller (workspace
+  non-member OR archived without `?include_archived`). Same
+  pattern as the rest of `UniverseViewSet`.
+- `502 Bad Gateway` — LLM provider unavailable / returned
+  unusable output. Body:
+  `{"error": "suggestion_provider_unavailable",
+    "detail": "Couldn't generate suggestions right now. Try again shortly."}`
+  Operator-facing detail avoids implementation vocabulary.
+
+Cache: Redis-backed via Django's default cache alias
+(`redis://localhost:6381/2`; already provisioned for
+embedding cache). TTL = 600 s. Key includes Universe id +
+latest Episode `created_at` + latest memory `created_at` +
+`n`. New Episode creation or memory promotion changes
+`latest_*_at` and naturally invalidates.
+
+### 69.6 Tests
+
+**Backend** — `apps/universe/tests/test_next_episode_suggestions.py`,
+16 tests, all pass in 5.5 s:
+
+- Service: empty Universe short-circuit (no LLM call);
+  populated Universe generates suggestions; cache hit on
+  second call; refresh bypasses cache; upstream error raises;
+  never pads below N when the LLM returns fewer; drops empty
+  strings from the LLM.
+- Endpoint: 200 with empty list on empty Universe; 200 with
+  suggestions on populated; refresh query param bypasses
+  cache; upstream error → 502; non-member → 404; archived →
+  404; `n` query param respected; `n` out-of-range or
+  non-integer silently falls back; operator-facing error
+  detail never leaks implementation vocabulary (guarded
+  against a banned-word list).
+
+Wider `apps/universe/tests/` regression: **115 tests, all
+pass** (5.5 s → 20.8 s total).
+
+**Frontend** —
+`web/src/components/possible-next-episodes.test.tsx`, 8 tests,
+all pass in ~90 ms:
+
+- Enabled=false → renders nothing.
+- Empty server response → renders nothing (no teaser).
+- Loading state renders skeleton + "Looking for ideas…".
+- Three suggestions render + heading + intro + refresh.
+- `[Use this]` click passes suggestion text verbatim to
+  parent handler.
+- Refresh click calls `refetch()`.
+- Error state renders with `[Try again]`.
+- Rendered strings never leak implementation vocabulary
+  (banned-word check).
+
+Wider regression: **5 test files, 42 tests, all pass** across
+`possible-next-episodes.test.tsx`, `episode-cast-picker.test.tsx`
+(the file that broke before the refactor), `episode-composition-workflow.test.tsx`,
+`universes.brief.test.tsx`, `universes.detail.test.tsx`.
+
+The pre-refactor regression was caused by the component
+originally calling `useNextEpisodeSuggestions` on every render.
+Existing tests mocked `@/lib/api/universes` with only
+`useUniverse`, so the missing hook broke unrelated Universe/
+Episode routes. Fix: split the component into an outer
+`PossibleNextEpisodes` (gates on `enabled`, early-returns
+`null`) and an inner `PossibleNextEpisodesInner` (owns the
+hook). Existing test mocks don't need updating — the inner
+component only mounts when the outer wrapper sees
+`enabled=true`, which requires the parent to have already
+loaded `useEpisodes` data showing ≥ 1 Episode.
+
+### 69.7 Runtime evidence — live service + HTTP round trip
+
+Service-layer live call against real DB (no cache, `use_cache=False`):
+
+- **Fox & Flour Bakery** (10 Episodes, 0 memories, 2 cast) —
+  ~2 s response, tokens_in=574 out=75:
+  1. *"Tyson and Ruby investigate whether the strange item in
+     the freezer is connected to the bakery's supposed
+     haunting."*
+  2. *"A local baking competition sends an official
+     invitation, forcing Tyson to find out whether Ruby
+     entered them after all."*
+  3. *"Ruby's mascot idea gains unexpected momentum when a
+     neighborhood kid leaves a fox-themed design at the
+     counter."*
+- **Patch's Workshop** (32 Episodes, 14 memories, 2 cast) —
+  ~5 s response, tokens_in=1660 out=96:
+  1. *"The button Patch was told not to press turns out to
+     trigger a workshop-wide safety drill, and the Agent
+     immediately starts grading everyone's response."*
+  2. *"Rivet finally tells Patch about the hidden PATCH
+     OVERRIDES folder, forcing them to decide whether the
+     Agent has been keeping notes or building a case."*
+  3. *"Patch's new mascot begins receiving messages from the
+     workshop helper, and Rivet suspects the two creations
+     are developing a private project."*
+- Cache miss → hit confirmed on a second identical call.
+
+HTTP round-trip via APIClient force-authenticated as
+`chris@donkeybetz.com` (owner of the workspace):
+
+- Fox & Flour Bakery: 200 OK, 3 suggestions rendered (as
+  above, second sample; distinct wording from the direct
+  service call because the LLM is stochastic — same substrate
+  produces qualitatively similar but not identical output).
+- Patch's Workshop: 200 OK, 3 suggestions rendered.
+- Empty Universe (newly created for the test, immediately
+  deleted): 200 OK, `suggestions=[]` — the SPA
+  short-circuit path.
+
+All three responses match §61.1 shape verbatim.
+`substrate_summary` and `cache.hit` present in the payload
+as intended (available for future observability without
+being operator-facing).
+
+**Observation — Semantic-2-adjacent behavior:** In the second
+HTTP-round-trip sample, Patch's Workshop suggestion #1 was
+*"Rivet discovers that the workshop agent has begun assigning
+confidence scores to Patch's ideas, including one Patch has
+not told anyone yet."* This is a **surprising** direction:
+the LLM is inventing an epistemic asymmetry (Rivet learning
+of an idea Patch has not disclosed) that is not explicitly
+in the memory pool. It's compatible with the Patch/Rivet arc
+and the workshop-agent memory cluster, but reads as the LLM
+noticing possibilities beyond mere Episode-title callback.
+Consistent with §40.2 provisional interpretation of "the
+storyteller telling us what is missing."
+
+### 69.8 What implementation exposed that the design missed
+
+Two small revisions vs §61-§62 as originally specified:
+
+1. **Component wrapper split** (§69.6). Not in the original
+   §62.1 spec; discovered when the initial single-component
+   implementation broke unrelated test mocks. Cheap fix,
+   preserves hooks-rule contract, keeps the design intact
+   from the operator's perspective.
+2. **`!creating` gate on the suggestions section**
+   (`universes.$id.episodes.tsx` render condition). Not
+   explicitly stated in §59.4 wireframe D but implied by the
+   flow — once the operator is inside the create form, the
+   suggestions should not compete for attention. As-built:
+   suggestions section hides during creating; unhides on
+   cancel/submit.
+
+Everything else landed exactly as designed. The Q280.5-1
+finding that Episode history alone suffices held true —
+Fox & Flour with 0 memories produced strong suggestions in
+the live runtime evidence.
+
+### 69.9 Remaining gaps + observations
+
+**Not in v1 (as documented at §63) and NOT changed here:**
+
+- No "why suggested" attribution UI.
+- No "seen recently" attractor dampener (Fox & Flour did
+  produce a freezer+haunting connection at slot 1 in both the
+  service call AND the HTTP round-trip; matches §51.1 HIGH
+  REPEATER RATE observation).
+- No dismissed-flag on suggestions or memories.
+- No auto-generation on Composition completion.
+- No suggestion surfaces on Home / Universe root / Episode
+  detail / Composition detail.
+- No PROMISE / DIALOGUE_CALLBACK adoption UX refresh (kinds
+  still under-used; §48.1 observation holds).
+
+**Discovered gap (not blocking v1):** the response payload
+includes `substrate_summary`, `generated_at`, `model`, and
+`cache.*` fields. These are useful for backend debugging /
+observability but not surfaced in the SPA today. A v1.5
+"admin sees what happened" widget could render them for
+Chris during dogfood without leaking into the operator UI.
+
+**Cost estimate for dogfood:** ~$0.005-$0.02 per generation
+(Q280.5-1 measured, live-runtime evidence confirms). With
+10-minute server cache, passive page loads within the same
+window are free. Predicted dogfood spend at
+20 generations/day/operator: $0.10-$0.40/day.
+
+### 69.10 Landing commit
+
+- Backend: service module + endpoint + tests.
+- Frontend: hook + component + wiring + tests.
+- Doc: this section (§69).
+- Test totals: **115 backend tests pass** in
+  `apps/universe/tests/`; **42 frontend tests pass** across
+  the 5 affected files. No regressions.
+- Substrate: unchanged. No migrations. No schema.
+- Deferrals from §63 remain deferred.
+- Feature is fully reversible: revert the commit + clear the
+  Redis `next_ep_sugg:*` cache and every trace of the
+  feature disappears without data loss.
+
+---
+
+## §70 Decision gate — post-implementation dogfood handoff (CURRENT; SUPERSEDES §67)
+
+**STOP here.** Hand the feature back to Chris + ChatGPT for
+operator dogfood before expanding.
+
+**Dogfood observation targets:**
+
+- Does the section feel discoverable in the natural flow —
+  operator returning to the Universe Episodes list?
+- Are the actual suggestions on Fox & Flour + Patch's
+  Workshop useful, ignorable, or noise?
+- Does `[Use this]` → pre-filled form → chip feel right, or
+  intrusive?
+- Does the operator ever hit `[Different ideas]`?
+- Is the empty-Universe silent-hide correct, or should there
+  be a nudge to build story first?
+- Does the loading state feel too long?
+- Any language in the surface that reads as too technical or
+  too cute?
+
+**After dogfood, next slice options (deferred):**
+
+- **A⁷.** No changes — v1 is enough. Close the arc.
+- **B⁷.** v1.5 tweaks based on dogfood friction (e.g.,
+  attractor dampening if repeat suggestions annoy).
+- **C⁷.** Add the §63 "NOT in v1" items that dogfood
+  proves needed.
+- **D⁷.** Add a sibling surface (PRODUCT_IA_V1 §6.1 Home
+  Next-step nudge; or Episode detail page; or Composition
+  detail page).
+- **E⁷.** Address the discovered `substrate_summary` /
+  `cache` fields → build an "admin sees what happened" v1.5
+  widget for Chris's own observability.
+- **F⁷.** Address the discovered "HIGH REPEATER RATE" via
+  the deferred attractor-dampener from §58.11.
+- **G⁷.** Return to outstanding Finding 4i options
+  (Q280.4i-3, Q280.4i-5) or PROMISE / DIALOGUE_CALLBACK
+  adoption work (§46 C⁴).
+- **H⁷.** Something else.
+
+**Do NOT interpret §70 as pre-authorizing any of A⁷-H⁷.**
+
+---
+
+## §71 Closeout — v1 implementation slice (CURRENT; SUPERSEDES §68)
+
+- **Status:** v1 implementation LANDED per §67 A⁶ approval.
+  Backend service + endpoint + tests. Frontend component +
+  hook + wiring + tests. No substrate mutation. No new
+  migrations. Fully reversible.
+- **Test totals:** 115 backend tests + 42 frontend tests
+  across affected surfaces, all passing.
+- **Runtime evidence:** live service call + HTTP round-trip
+  on Fox & Flour Bakery + Patch's Workshop + empty Universe
+  all pass. Suggestions demonstrably pick up prior Episodes
+  and (for Patch's Workshop) memory rows. One suggestion
+  produced surprising Semantic-2-adjacent content in the live
+  run (§69.7) — the LLM invented a plausible epistemic
+  asymmetry not explicitly in the substrate.
+- **Cost:** ~$0.005-$0.02 per LLM call at v1 pricing.
+  Cumulative SESSION 280 spend estimate: ~$0.20 unchanged
+  from prior sections (this slice ran the Q280.5-1-shape
+  probes but through the production service — so cost is
+  effectively the ~$0.10 already tracked).
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `a3d294d`.
+  - Design SHA trailer: `b19d030`.
+  - v1 implementation slice: `[recorded on commit]`.
+- **Working method preserved:** ORIENT → smallest surface →
+  smallest change → focused regression coverage → run tests
+  → inspect actual operator-visible result. Rubric and
+  design contracts kept from §56-§68 without post-hoc
+  revision.
+- **All prior evidence preserved:** §3-§55 unchanged in
+  substance. §56-§68 design preserved with the two small
+  as-built revisions documented at §69.8.
+- **Next gate:** §70 A⁷/B⁷/C⁷/D⁷/E⁷/F⁷/G⁷/H⁷ — awaiting
+  operator dogfood by Chris + ChatGPT.
+- **Do NOT proceed to any expansion slice without a fresh
+  Chris + ChatGPT authorization.** In particular, do NOT
+  build a sibling surface (Home / Universe root / Episode
+  detail), do NOT add PROMISE / DIALOGUE_CALLBACK adoption
+  UX, do NOT add attractor dampening, and do NOT modify the
+  Composition creation flow.
 - **Key design decisions:**
   1. Primary v1 placement: **Universe Episodes list page**
      (`/workspace/universes/:id/episodes`) above the existing

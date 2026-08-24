@@ -16,14 +16,15 @@
  * - Standalone Composition workflow (no Episode) remains available
  *   from the recipe form elsewhere in the SPA.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronLeft, Sparkles, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/editorial";
+import { PossibleNextEpisodes } from "@/components/possible-next-episodes";
 import { useUniverse } from "@/lib/api/universes";
 import { useEpisodes, useCreateEpisode } from "@/lib/api/episodes";
 import { useSpokespeople } from "@/lib/api/spokespeople";
@@ -56,6 +57,13 @@ export function UniverseEpisodesRoute() {
   const [selectedCastIds, setSelectedCastIds] = useState<Set<string>>(
     new Set(),
   );
+  // SESSION 280 v1 — chip appears above the topic field when the
+  // operator arrived here by picking a "where could this story go
+  // next?" suggestion. UI-only state; the suggestion text is a
+  // pre-fill, never a commitment, and the operator can edit or
+  // discard freely.
+  const [suggestionChipVisible, setSuggestionChipVisible] = useState(false);
+  const topicRef = useRef<HTMLTextAreaElement | null>(null);
 
   const toggleCast = (teammateId: string) => {
     setSelectedCastIds((prev) => {
@@ -99,6 +107,7 @@ export function UniverseEpisodesRoute() {
       setTitle("");
       setOperatorTopic("");
       setSelectedCastIds(new Set());
+      setSuggestionChipVisible(false);
       navigate(`/workspace/episodes/${ep.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -110,6 +119,33 @@ export function UniverseEpisodesRoute() {
   }
 
   const rows = episodes.data ?? [];
+  // SESSION 280 v1 — gate the "where could this story go next?"
+  // section on there being ≥ 1 non-archived Episode in this
+  // Universe. Zero episodes = no story substrate to suggest from;
+  // the section hides silently rather than nagging the operator.
+  const activeEpisodeCount = rows.filter((r) => !r.archived_at).length;
+  const suggestionsEnabled = activeEpisodeCount >= 1;
+
+  // SESSION 280 v1 — handler passed into <PossibleNextEpisodes>.
+  // Picking a suggestion OPENS the existing create form with the
+  // topic pre-filled. Nothing is created until the operator
+  // submits. Cast stays unset — the operator decides who's in
+  // this Episode. Title stays blank — will derive from the topic
+  // on submit unless the operator supplies one.
+  function handleUseSuggestion(text: string) {
+    setCreating(true);
+    setTitle("");
+    setOperatorTopic(text);
+    setSelectedCastIds(new Set());
+    setSubmitError(null);
+    setSuggestionChipVisible(true);
+    // Focus the topic textarea after the form mounts so the
+    // operator immediately sees the pre-fill is theirs to edit.
+    setTimeout(() => {
+      topicRef.current?.focus();
+      topicRef.current?.setSelectionRange(text.length, text.length);
+    }, 0);
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -141,11 +177,50 @@ export function UniverseEpisodesRoute() {
         )}
       </header>
 
+      {/* SESSION 280 v1 — "Where could this story go next?"
+          surface. Hidden entirely when the Universe has zero
+          active Episodes; the existing empty-state copy below
+          still fires in that case. Renders above the existing
+          episodes list so the operator sees possibilities
+          adjacent to (not instead of) their own choice. */}
+      {universeId && !creating && (
+        <PossibleNextEpisodes
+          universeId={universeId}
+          enabled={suggestionsEnabled}
+          onUseSuggestion={handleUseSuggestion}
+        />
+      )}
+
       {creating && (
         <form
           onSubmit={handleCreate}
           className="flex flex-col gap-3 rounded-lg border border-fog/30 bg-black/20 p-6"
         >
+          {/* SESSION 280 v1 — appears only when the operator
+              arrived at this form by picking a "where could this
+              story go next?" suggestion. Never persisted; the
+              [×] dismisses the chip only (textarea contents are
+              the operator's to edit or discard). */}
+          {suggestionChipVisible && (
+            <div
+              className="flex items-center justify-between gap-2 rounded-md border border-gold/40 bg-gold/5 px-3 py-2 text-xs text-gold"
+              data-testid="episode-create-suggestion-chip"
+              role="status"
+            >
+              <span>
+                Started from an idea. Edit anything freely — nothing is
+                saved yet.
+              </span>
+              <button
+                type="button"
+                onClick={() => setSuggestionChipVisible(false)}
+                className="text-gold/70 transition-colors hover:text-gold"
+                aria-label="Dismiss the suggested-start note"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <Label htmlFor="new-ep-title">Title (optional; derived from topic if blank)</Label>
           <Input
             id="new-ep-title"
@@ -156,6 +231,7 @@ export function UniverseEpisodesRoute() {
           <Label htmlFor="new-ep-topic">Operator topic (story-authoritative)</Label>
           <textarea
             id="new-ep-topic"
+            ref={topicRef}
             className="min-h-[120px] rounded-md border border-fog/30 bg-black/30 px-3 py-2 text-cream"
             value={operatorTopic}
             onChange={(ev) => setOperatorTopic(ev.target.value)}
@@ -265,6 +341,7 @@ export function UniverseEpisodesRoute() {
                 setCreating(false);
                 setSubmitError(null);
                 setSelectedCastIds(new Set());
+                setSuggestionChipVisible(false);
               }}
             >
               Cancel

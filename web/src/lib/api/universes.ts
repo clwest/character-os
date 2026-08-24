@@ -242,3 +242,93 @@ export function useHardDeleteUniverse(workspaceId: string | undefined) {
 //      The SPA renders this as a real option so the operator makes a choice;
 //      the payload sends either a real UUID or `null` (never empty).
 export const UNIVERSE_LEGACY_SENTINEL = "__LEGACY__";
+
+
+// ---- SESSION 280 v1 — possible-next-Episode suggestions --------------
+//
+// Read-only surface: given a Universe with ≥ 1 Episode, return a small
+// number of one-sentence possible next-Episode directions. Operator
+// remains authoritative — nothing here creates, edits, or persists
+// anything. See docs/design/SESSION_280_EPISTEMIC_ASYMMETRY_AUDIT.md
+// §56-§68 for design and §69+ for this implementation slice.
+
+const suggestionSchema = z.object({
+  text: z.string(),
+});
+
+const nextEpisodeSuggestionsResponseSchema = z.object({
+  suggestions: z.array(suggestionSchema),
+  substrate_summary: z
+    .object({
+      episodes_used: z.number().int().nonnegative(),
+      memories_used: z.number().int().nonnegative(),
+      cast_count: z.number().int().nonnegative(),
+    })
+    .partial()
+    .passthrough(),
+  generated_at: z.string(),
+  model: z.string(),
+  cache: z
+    .object({
+      hit: z.boolean(),
+      ttl_seconds: z.number().int().nonnegative(),
+    })
+    .passthrough(),
+});
+
+export type NextEpisodeSuggestion = z.infer<typeof suggestionSchema>;
+export type NextEpisodeSuggestionsResponse = z.infer<
+  typeof nextEpisodeSuggestionsResponseSchema
+>;
+
+export async function getNextEpisodeSuggestions(
+  universeId: string,
+  opts: { n?: number; refresh?: boolean } = {},
+): Promise<NextEpisodeSuggestionsResponse> {
+  const params = new URLSearchParams();
+  if (opts.n != null) params.set("n", String(opts.n));
+  if (opts.refresh) params.set("refresh", "true");
+  const qs = params.toString();
+  return apiJson(
+    `/api/universes/${universeId}/next-episode-suggestions/${qs ? `?${qs}` : ""}`,
+    {},
+    (json) => nextEpisodeSuggestionsResponseSchema.parse(json),
+  );
+}
+
+/**
+ * Query for "where could this story go next?" suggestions for a Universe.
+ *
+ * Gated on the caller-supplied `enabled` flag — the SPA is expected to
+ * pass `enabled: existingEpisodesCount >= 1` so we don't spend a
+ * provider call generating suggestions for a Universe with no story
+ * substrate. Server also short-circuits empty Universes with a fast
+ * 200 + empty list (no LLM call), but the frontend gate saves a round
+ * trip.
+ */
+export function useNextEpisodeSuggestions(
+  universeId: string | undefined,
+  opts: {
+    n?: number;
+    enabled?: boolean;
+  } & Omit<
+    UseQueryOptions<NextEpisodeSuggestionsResponse>,
+    "queryKey" | "queryFn"
+  > = {},
+) {
+  const { n, enabled = true, ...queryOptions } = opts;
+  return useQuery({
+    queryKey: ["universe", universeId, "next-episode-suggestions", n ?? 3],
+    queryFn: () => getNextEpisodeSuggestions(universeId!, { n }),
+    enabled: !!universeId && enabled,
+    // Match server-side 10-minute cache so a fresh mount within the
+    // window doesn't re-fetch.
+    staleTime: 10 * 60 * 1000,
+    // Refresh is operator-driven via refetch() — don't refetch on
+    // window focus (would surprise the operator with new options
+    // just from clicking away and back).
+    refetchOnWindowFocus: false,
+    retry: false,
+    ...queryOptions,
+  });
+}

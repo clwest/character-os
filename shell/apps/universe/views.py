@@ -164,6 +164,92 @@ class UniverseViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+    # ---- SESSION 280 v1 — possible-next-Episode suggestions ----
+    #
+    # Read-only surface over existing story substrate (Episodes +
+    # NarrativeMemory + cast). The operator remains authoritative
+    # — nothing here creates, edits, or persists anything on the
+    # operator's behalf. See audit doc §56-§68 for the design
+    # rationale, and §69+ for this implementation slice.
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="next-episode-suggestions",
+    )
+    def next_episode_suggestions(self, request, *args, **kwargs) -> Response:
+        """Return ~N one-sentence possible next-Episode directions.
+
+        Query params:
+
+        * ``n`` (int, optional, default 3, clamped 1..5) — number
+          of suggestions to request.
+        * ``refresh`` (bool, optional, default false) — bypass the
+          server-side memoization cache.
+
+        Response envelope::
+
+            {
+              "suggestions": [{"text": "..."}, ...],
+              "substrate_summary": {...},
+              "generated_at": "...",
+              "model": "...",
+              "cache": {"hit": bool, "ttl_seconds": int}
+            }
+
+        Empty ``suggestions`` list is a valid 200 response — the
+        Universe has no eligible Episodes to build on and the SPA
+        should hide the surface without treating it as an error.
+
+        Errors:
+
+        * 404 — Universe not found (or caller not a workspace
+          member; ``get_object`` returns 404 in both cases).
+        * 502 — LLM provider unreachable / returned unusable
+          response.
+        """
+        from .services import (
+            NextEpisodeSuggestionUpstreamError,
+            suggest_next_episodes,
+        )
+
+        universe = self.get_object()
+
+        # Parse ``n`` — accept int-parseable strings; clamp
+        # silently rather than 400 so a stray SPA query param
+        # doesn't break the surface.
+        raw_n = request.query_params.get("n") or ""
+        try:
+            n = int(raw_n) if raw_n else 3
+        except ValueError:
+            n = 3
+
+        use_cache = (
+            request.query_params.get("refresh") or ""
+        ).strip().lower() not in {"1", "true", "yes"}
+
+        try:
+            payload = suggest_next_episodes(
+                universe, n=n, use_cache=use_cache,
+            )
+        except NextEpisodeSuggestionUpstreamError as exc:
+            logger.warning(
+                "next_episode_suggestions upstream failure "
+                "for universe=%s: %s",
+                getattr(universe, "id", None), exc,
+            )
+            return Response(
+                {
+                    "error": "suggestion_provider_unavailable",
+                    "detail": (
+                        "Couldn't generate suggestions right now. "
+                        "Try again shortly."
+                    ),
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(payload)
+
 
 # ============================================================
 # EPISODE_SCHEMA_V1 (SESSION 262)
