@@ -476,6 +476,109 @@ class CompositionViewSet(viewsets.GenericViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="suggested-memories",
+    )
+    def suggested_memories(self, request, pk: str | None = None):
+        """SESSION 281 Slice 281.1 — model-as-curator suggestions.
+
+        ``GET /api/compositions/<id>/suggested-memories/?n=3&refresh=false``
+
+        Read-only surface. Returns ~N candidate memory bodies the
+        operator MAY choose to promote via the existing
+        ``[Remember this]`` flow (which continues to route through
+        ``promote_from_composition``). This endpoint NEVER creates,
+        edits, archives, or otherwise mutates any
+        ``NarrativeMemory`` row — Chris's Option A¹¹ boundary
+        preserved.
+
+        Query params:
+
+        * ``n`` (int, optional, default 3, clamped ``[1, 5]``) —
+          number of candidates to request. Out-of-range / non-int
+          values silently reset to default (matches v1
+          ``next_episode_suggestions`` tolerant behavior).
+        * ``refresh`` (bool, optional, default ``false``) — bypass
+          the 30-min server-side memoization cache.
+
+        Response envelope (200)::
+
+            {
+              "candidates": [
+                {"body": str, "kind": str, "witnesses": list[str],
+                 "narrative_gravity_note": str}, ...
+              ],
+              "substrate_summary": {...},
+              "generated_at": ISO-8601 UTC str,
+              "model": str,
+              "cache": {"hit": bool, "ttl_seconds": int}
+            }
+
+        Empty ``candidates`` list is a valid 200 response — the
+        composition is not ``COMPLETED``, has no realized
+        ``synthesized_brief`` dialogue, or is not attached to an
+        Episode. The SPA (Slice 281.2) hides the surface in these
+        states.
+
+        Errors:
+
+        * 404 — Composition not found or caller not a workspace
+          member (``get_queryset`` scoping — no existence
+          disclosure).
+        * 502 — LLM provider unreachable or returned unusable
+          response. Detail string is operator-facing and contains
+          no implementation vocabulary.
+        """
+        # Local imports mirror the ``promote_narrative_memory``
+        # action's style — avoids top-of-file cycle risk.
+        from apps.memory.services import (
+            SuggestMemoriesUpstreamError,
+            suggest_memories_from_composition,
+        )
+
+        try:
+            comp = self.get_queryset().get(pk=pk)
+        except Composition.DoesNotExist:
+            raise NotFound("Composition not found")
+        self.check_object_permissions(request, comp)
+
+        # ``n`` — accept int-parseable strings; clamp silently
+        # inside the service.
+        raw_n = request.query_params.get("n") or ""
+        try:
+            n = int(raw_n) if raw_n else 3
+        except ValueError:
+            n = 3
+
+        use_cache = (
+            request.query_params.get("refresh") or ""
+        ).strip().lower() not in {"1", "true", "yes"}
+
+        try:
+            payload = suggest_memories_from_composition(
+                comp, n=n, use_cache=use_cache,
+            )
+        except SuggestMemoriesUpstreamError as exc:
+            logger.warning(
+                "suggested_memories upstream failure "
+                "for composition=%s: %s",
+                comp.id, exc,
+            )
+            return Response(
+                {
+                    "error": "suggestion_provider_unavailable",
+                    "detail": (
+                        "Couldn't generate suggestions right now. "
+                        "Try again shortly."
+                    ),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(payload)
+
     @action(detail=True, methods=["get"])
     def lineage(self, request, pk: str | None = None):
         """F5 — asset lineage for a composition.

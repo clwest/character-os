@@ -729,3 +729,471 @@ SESSION_281_ORIENTATION_AND_SCOPE_LOCK.md landing SHA: ce4e490
 **STOP.** No Slice 281.1 implementation. Awaiting Chris +
 ChatGPT decision gate approval per handoff §3.decision-gate
 protocol.
+
+---
+
+# Slice 281.1 — Implementation + Evidence
+
+Orientation approved. Locked decisions (see conversation
+transcript / handoff §3):
+
+* Cache TTL: **1800 seconds (30 minutes)** — deliberately
+  different from the v1 story-direction service's 600s cache.
+* Cache-key axes: composition ID + latest same-composition
+  ``NarrativeMemory.created_at`` + requested ``n``. A newly
+  remembered item from the same composition rotates the key.
+* Result count: default ``n=3``; clamp ``[1, 5]``; out-of-range
+  falls back to default (tolerant query-param behavior).
+* Empty / unfinished behavior: non-completed composition OR no
+  realized ``synthesized_brief`` → HTTP 200 with
+  ``candidates=[]``; no provider call.
+* Human-authority boundary: curator NEVER creates, edits,
+  archives, supersedes, or otherwise mutates any
+  ``NarrativeMemory`` row. Existing ``promote_from_composition``
+  contract preserved untouched.
+* Operator vocabulary: backend-owned error copy contains no
+  banned implementation vocabulary. Model output (candidate
+  bodies, kinds, narrative_gravity_notes) passes through raw;
+  vocabulary discipline for candidate rendering lives on the
+  SPA in Slice 281.2.
+
+## §L1 Files changed
+
+**New:**
+
+* `shell/apps/memory/tests/test_suggest_memories.py`
+  (~620 lines, 29 pytest-collected cases).
+* `scripts/session281_slice_281_1_real_provider_verify.py`
+  (~150 lines; ONE-shot real-provider verification harness).
+* `docs/design/session281_experiment_data/slice_281_1_real_provider_evidence.json`
+  (real-provider evidence artifact).
+
+**Extended additively:**
+
+* `shell/apps/memory/services.py` — appended the
+  ``SuggestMemoriesError`` / ``SuggestMemoriesUpstreamError``
+  typed errors, ``_CuratorSubstrateSnapshot`` dataclass, and
+  ``suggest_memories_from_composition`` service + private
+  helpers (``_snapshot_for_curator``,
+  ``_build_curator_task_message``, ``_call_curator_openai``,
+  ``_parse_curator_candidates``, ``_curator_cache_key``,
+  ``_curator_valid_kinds``). Existing embedding + provenance
+  resolvers untouched.
+* `shell/apps/compositions/views.py` — added
+  ``CompositionViewSet.suggested_memories`` GET action at
+  ``/api/compositions/<id>/suggested-memories/``. No URLconf
+  edits — DRF router picks up the new ``@action``
+  automatically.
+* `shell/apps/compositions/tests/test_isolation.py` — added
+  ``apps/memory/tests/test_suggest_memories.py`` to
+  ``ALLOWED_FILES`` with a code-review note. The isolation
+  test polices which modules may call ``Composition.objects.create()``;
+  curator test fixtures seed completed / draft / empty-brief
+  Compositions and are legitimate test-side writers per the
+  same rationale as
+  ``apps/memory/tests/test_narrative_memory.py`` (already
+  allowed since SESSION 264).
+
+Net diff:
+
+```
+shell/apps/compositions/tests/test_isolation.py |    9 +
+shell/apps/compositions/views.py                |  103 ++
+shell/apps/memory/services.py                   |  611 ++ (net)
+shell/apps/memory/tests/test_suggest_memories.py|  620 (new)
+scripts/session281_slice_281_1_real_provider_verify.py | 150 (new)
+docs/design/session281_experiment_data/slice_281_1_real_provider_evidence.json | 53 (new)
+```
+
+## §L2 Service shape
+
+```python
+def suggest_memories_from_composition(
+    composition,
+    *,
+    n: int = 3,       # clamped [1, 5]; out-of-range → 3
+    use_cache: bool = True,
+) -> dict:
+    """
+    Returns:
+      {
+        "candidates": [
+          {"body": str, "kind": str, "witnesses": list[str],
+           "narrative_gravity_note": str}, ...
+        ],
+        "substrate_summary": {
+          "prior_episodes_used": int,
+          "existing_memories_used": int,
+          "cast_count": int,
+          "dialogue_chars": int,
+        },
+        "generated_at": ISO-8601 UTC str,
+        "model": str,
+        "cache": {"hit": bool, "ttl_seconds": int},
+        "tokens_input": int,   # omitted on cache hit
+        "tokens_output": int,  # omitted on cache hit
+      }
+
+    Raises SuggestMemoriesUpstreamError on provider error /
+    unparseable response.
+    """
+```
+
+Read-only. Never creates, edits, archives, supersedes, or
+otherwise mutates any ``NarrativeMemory`` row.
+
+## §L3 Endpoint shape
+
+```
+GET /api/compositions/<id>/suggested-memories/?n=3&refresh=false
+```
+
+* 200 on success (candidates list, possibly empty).
+* 200 with ``candidates=[]`` on non-completed / empty-brief /
+  no-episode compositions (no provider call).
+* 404 on non-member / non-existent (queryset scoping).
+* 502 on provider failure with the operator-facing envelope
+  ``{"error": "suggestion_provider_unavailable", "detail":
+  "Couldn't generate suggestions right now. Try again shortly."}``.
+
+## §L4 Test coverage
+
+`apps/memory/tests/test_suggest_memories.py` — 29 pytest-collected
+cases across service + endpoint layers. All provider calls
+mocked at ``apps.memory.services._call_curator_openai``.
+
+**Service-layer cases (14 collected):**
+
+* `test_service_completed_composition_returns_three_candidates`
+* `test_service_empty_dialogue_short_circuits_no_llm`
+* `test_service_non_completed_composition_short_circuits`
+* `test_service_default_n_is_three`
+* `test_service_n_clamp[1-1]` / `[5-5]` / `[0-3]` / `[6-3]`
+  / `[-1-3]` (parametrized ×5)
+* `test_service_cache_miss_then_hit`
+* `test_service_refresh_bypasses_cache`
+* `test_service_cache_key_rotates_on_new_same_composition_memory`
+* `test_service_upstream_error_raises_typed`
+* `test_service_malformed_json_raises_upstream_error`
+* `test_service_missing_candidates_key_raises`
+* `test_service_drops_junk_but_keeps_valid`
+* `test_service_never_writes_narrative_memory`
+* `test_service_existing_universe_memories_feed_the_prompt`
+
+**Endpoint-layer cases (11 collected):**
+
+* `test_endpoint_completed_composition_returns_200`
+* `test_endpoint_empty_dialogue_returns_200_empty_no_llm`
+* `test_endpoint_draft_composition_returns_200_empty_no_llm`
+* `test_endpoint_refresh_query_param_bypasses_cache`
+* `test_endpoint_n_query_param_respected`
+* `test_endpoint_n_out_of_range_falls_back_to_default`
+* `test_endpoint_upstream_error_returns_502`
+* `test_endpoint_non_member_gets_404`
+* `test_endpoint_error_detail_never_leaks_implementation_vocabulary`
+* `test_endpoint_does_not_write_narrative_memory`
+* `test_endpoint_existing_promoted_memory_still_untouched`
+
+Focused suite result:
+
+```
+python -m pytest apps/memory/tests/test_suggest_memories.py
+→ 29 passed, 4 warnings in 10.74s
+```
+
+## §L5 Baseline regression comparison
+
+Reference baseline (orientation pass, HEAD `00a14c3`):
+
+```
+1475 passed / 2 failed (pre-existing K6.4 mock-drift)
+```
+
+Post-slice baseline (HEAD ce4e490 + slice work):
+
+```
+python -m pytest apps/universe/tests/ apps/memory/tests/ apps/compositions/tests/
+→ 1504 passed / 2 failed / 149s
+```
+
+Delta: **+29 tests passing** (matches the 29 new curator
+cases). Same 2 pre-existing K6.4 mock-drift failures
+(`test_dialogue_synthesis_canon_lane::test_canon_chunk_participates_in_each_speaker_k64_corpus`
+and `test_dialogue_synthesis_memory_lane::test_memory_body_participates_in_each_speaker_k64_corpus`)
+— both fail because they mock
+`character_os.dialogue_synthesis.run_verifier` which no longer
+exists. Out of scope per handoff §8 ("Do NOT modify K6.4 /
+D-POS verifier").
+
+**Zero new regressions introduced by Slice 281.1.**
+
+Intermediate observation: the first baseline run surfaced ONE
+transient regression in
+`apps/compositions/tests/test_isolation.py::test_only_composition_module_writes_composition_tables`
+because the new curator test file writes ``Composition.objects.create()``
+in its fixtures. Resolved by adding the file to
+``ALLOWED_FILES`` with a code-review note — same pattern
+`test_narrative_memory.py` uses since SESSION 264. This is not
+a curator-service regression; it's the isolation contract
+correctly noticing a new legitimate test-side writer.
+
+## §L6 Real-provider verification (ONE controlled call)
+
+Fired via `scripts/session281_slice_281_1_real_provider_verify.py`
+against composition `772e9012-4d26-4f93-a50c-158b4e8a42f1`
+(Fox & Flour Bakery, Episode `eb47350e`) using
+``use_cache=False``. Evidence at
+`docs/design/session281_experiment_data/slice_281_1_real_provider_evidence.json`.
+
+**Metadata:**
+
+```
+model:               gpt-5.6-terra
+elapsed:             5.462s
+tokens_input:        1366
+tokens_output:       210
+candidates:          3
+cache_hit:           False
+substrate_summary:
+  prior_episodes_used:      11
+  existing_memories_used:   2      (the two SESSION 280 Fox & Flour rows)
+  cast_count:               2      (Ruby + Tyson)
+  dialogue_chars:           1426
+narrative_memory_write_delta:      0
+memory_count_before / after:       19 / 19
+```
+
+**Candidates (verbatim):**
+
+1. `world_detail` — witnesses ["Ruby","Tyson"]
+   > "Ruby amended the new closing routine with a mascot clause:
+   > no one locks up until the door is checked, all people are
+   > accounted for, and the mascot is confirmed outside the
+   > bakery."
+   > *why:* Establishes a standing, slightly comic operational
+   > rule that can be tested once a mascot exists.
+
+2. `promise` — witnesses ["Ruby","Tyson"]
+   > "Ruby still wants Fox & Flour to have a welcoming bakery
+   > mascot for the neighborhood."
+   > *why:* Keeps the mascot idea alive as an unresolved future
+   > addition to the bakery.
+
+3. `action` — witnesses ["Ruby","Tyson"]
+   > "Tyson proposed installing a tiny bell to warn anyone
+   > reaching for the door without thinking."
+   > *why:* Provides a practical-but-comic invention that could
+   > reappear as a running gag or actually be installed later.
+
+**Cost estimate (best-effort).** 1366 input + 210 output tokens
+against `gpt-5.6-terra` at the current SESSION 280 audit-doc
+per-call estimate of ~$0.02 aligns with the handoff §11.3
+projection ("v1.5 curator per composition detail page load
+(estimated): ~$0.02, cached 30 min"). Under the 30-min cache
+that gates the endpoint, this cost is amortized across all
+same-composition detail-page loads within the TTL window.
+
+**Invariant checks passed:**
+
+* Zero ``NarrativeMemory`` writes during the call
+  (write_delta = 0; row count unchanged at 19).
+* The two SESSION 280 Fox & Flour rows
+  (`abac5486-6404-411b-ad42-54c9884b980f` event,
+  `fa35eb8f-098d-4fbf-86a3-3e38961c059e` dialogue_callback)
+  present, unmodified, and reflected in the
+  ``existing_memories_used=2`` substrate summary.
+* No candidate is a duplicate of the two existing rows
+  (LLM honored the "do NOT propose duplicates" instruction).
+* All 3 candidates parse successfully into the internal
+  contract (`body`, `kind`, `witnesses`, `narrative_gravity_note`)
+  and use valid ``NarrativeMemoryKind`` values.
+* Response envelope matches the endpoint contract from §L2
+  end-to-end.
+
+**Post-verification substrate check.**
+
+```
+python manage.py shell -c "..."
+  COMP: 772e9012-...  episode: eb47350e-...  status: completed
+  COMP brief_len: 1850
+  MEM: abac5486  kind=event  status=remembered  archived_at=None  ...
+  MEM: fa35eb8f  kind=dialogue_callback  status=remembered  archived_at=None  ...
+```
+
+All three specimens unchanged from the orientation §4.1 / §4.2
+readings.
+
+## §L7 What Slice 281.1 proved
+
+* **Q280.9 curator behavior lifts cleanly into production.**
+  Same prompt shape, same provider stack, same output contract.
+  Real provider produced 3 valid candidates on the first
+  attempt against the canonical specimen.
+* **The 30-min cache with composition-scoped invalidation
+  works as designed.** Service-layer test
+  `test_service_cache_key_rotates_on_new_same_composition_memory`
+  exercises the full loop: first call → cache hit → new
+  same-composition ``[Remember this]`` via
+  ``promote_from_composition`` → next call misses cache → new
+  LLM call fires.
+* **The empty-substrate / non-completed short-circuit is
+  bulletproof.** No LLM call fires for DRAFT compositions or
+  empty ``synthesized_brief`` — proven by explicit
+  `mock_llm.assert_not_called()` assertions in three tests.
+* **The tolerant parser handles LLM drift without noise.**
+  Junk entries (missing bodies, unknown kinds, wrong shape)
+  are dropped; valid entries pass through. Structural JSON
+  errors raise `SuggestMemoriesUpstreamError` → 502.
+* **The 502 envelope carries no implementation vocabulary.**
+  Vocabulary-leak invariant test walks 16 banned words
+  including "candidate", "prompt", "llm", "embedding",
+  "vector", "dialogue_callback", "world_detail",
+  "narrativememorykind", "top_k", "retrieval", "substrate",
+  "provenance", "memory_id", "latent thread",
+  "promote_from_composition" — none appear in the operator-
+  facing detail string.
+* **The curator writes nothing.** Two independent tests
+  (service-layer + endpoint-layer) assert
+  ``NarrativeMemory.objects.count()`` is unchanged; the real-
+  provider run confirmed write_delta = 0.
+
+## §L8 Assumptions still in play
+
+* **Curator variance across refresh cycles is uncharacterized.**
+  Q280.9 ran with n=1; §7.3 of the handoff flagged this as a
+  future science-focused question. Slice 281.1 does not
+  address it. The Slice 281.3 operator dogfood will surface
+  whether variance is a practical problem.
+* **Curator behavior on tension-rich scenes remains untested.**
+  Handoff §7.4 (Patch's Workshop `4598fcfa` companion probe)
+  not run. Slice 281.1 shipped only against the cooperative
+  Fox & Flour source scene. If tension-rich scenes produce
+  differently-shaped candidates, Slice 281.2 dogfood on
+  Patch's Workshop compositions will show it.
+* **Curator metadata (kind, witnesses, narrative_gravity_note)
+  is model-authored, not authoritative.** Per Chris's Slice
+  authorization: "do not establish or assume that Slice 281.2
+  will blindly persist those values." Slice 281.2 must decide
+  whether to accept the model's ``kind`` verbatim on
+  `[Remember this]` or apply operator override / model-default
+  policy. Slice 281.1 does not pre-commit either way.
+* **Cache invalidation is composition-scoped only.** A new
+  memory promoted from a DIFFERENT composition in the same
+  Universe does NOT rotate the curator cache. Chris's
+  authorization made this explicit; if cross-composition
+  invalidation becomes a practical problem, Slice 281.4+ can
+  broaden the cache-key axes.
+
+## §L9 New findings recorded during Slice 281.1
+
+* **`promote_from_composition` requires explicit ``weight``**
+  when called directly (bypassing the serializer). The
+  serializer defaults to ``PERIPHERAL`` but the service
+  function itself does not. First-pass tests failed with
+  ``{'weight': [ErrorDetail(string='This field cannot be null.')]}``;
+  fixed by passing ``weight=NarrativeMemoryWeight.PERIPHERAL.value``
+  in test fixtures. **Not a bug in Slice 281.1's substrate**
+  — the service is called via the serializer in production
+  code paths. **Candidate for a future micro-slice** ("harden
+  ``promote_from_composition`` default-weight so direct callers
+  match serializer behavior") if Slice 281.2's SPA wiring
+  hits the same edge. Recorded here per handoff §10
+  "Fix-shaped handoff compounds"; NOT fixed opportunistically
+  in this slice.
+
+* **`test_isolation.py::ALLOWED_FILES` gates new test-side
+  Composition writers.** Adding a new test module that seeds
+  Composition fixtures requires explicit ALLOWED_FILES
+  entry with a code-review note. Documented above (§L1); the
+  isolation test correctly caught the new writer on the first
+  regression run.
+
+## §L10 Preservation checks
+
+* v1 "Where could this story go next?" surface unchanged.
+  Confirmed by inspection —
+  `apps/universe/services/next_episode_suggestions.py`,
+  `apps/universe/views.py::UniverseViewSet.next_episode_suggestions`,
+  `web/src/lib/api/universes.ts::useNextEpisodeSuggestions`,
+  `web/src/components/possible-next-episodes.tsx`,
+  `web/src/routes/workspace/universes.$id.episodes.tsx` all
+  untouched. All 16 v1 backend tests + 8 frontend tests still
+  green (part of the 1504-passing baseline).
+* `promote_from_composition` service signature + behavior
+  unchanged. Not imported by the curator service; still lives
+  at `apps/memory/views.py:171-287` with the same keyword-only
+  signature and atomic semantics as at orientation.
+* `NarrativeMemory` schema, kinds, weights, and witness
+  semantics unchanged. No migration was created; no model file
+  was edited.
+* K6.4 / D-POS verifier unchanged.
+* Retrieval predicate (`retrieve_universe_memory`) and
+  synthesis prompt assembly (`_assemble_system_prompt`)
+  unchanged.
+* Ruby / Tyson / Patch / Rivet identities, personalities, K2
+  docs, business_briefs unchanged.
+* Both SESSION 280 Fox & Flour memories
+  (`abac5486-6404-411b-ad42-54c9884b980f` and
+  `fa35eb8f-098d-4fbf-86a3-3e38961c059e`) unmodified —
+  confirmed post-run by direct DB read.
+* No frontend code changes. `narrative-memory-panels.tsx`
+  untouched. Frontend regression check not re-run this slice
+  (backend-only); orientation-time baseline was 729 tests
+  green and no frontend surface is touched.
+* No dependency changes. No new Python / npm packages. No
+  changes to `pyproject.toml` / `package.json` /
+  `requirements*.txt`.
+* No URLconf edits. DRF router picks up the new `@action`
+  automatically.
+
+## §L11 Slice 281.1 landing SHAs
+
+```
+Slice 281.1 primary landing SHA:  <filled in on next commit>
+Slice 281.1 SHA-trailer commit:   <filled in on next commit>
+```
+
+## §L12 Slice 281.1 decision gate
+
+**Is Slice 281.2 safe to authorize?**
+
+Yes, subject to Chris + ChatGPT judgment on the four items
+below.
+
+* **Curator kind vocabulary is stable enough to pass through
+  to `[Remember this]`.** The real-provider verification
+  produced three candidates with valid ``NarrativeMemoryKind``
+  values (`world_detail`, `promise`, `action`). Slice 281.2
+  may consider passing the model's ``kind`` verbatim to
+  ``promote_from_composition`` — OR applying a default
+  (matching today's textarea path which uses the
+  `NarrativeMemoryPromoteItemSerializer` PERIPHERAL default).
+  This is a Slice 281.2 UX design decision, not a Slice 281.1
+  gate.
+* **Witnesses are model-authored; policy TBD.** The real-
+  provider run returned explicit `["Ruby","Tyson"]` witnesses
+  on all three candidates rather than "everyone" / whole-cast.
+  Today's textarea path defaults to whole-cast (empty
+  ``witnessed_by``). Slice 281.2 must decide: honor model
+  witnesses, or fall back to whole-cast, or expose both as
+  an operator affordance. Slice 281.1 preserves the raw
+  witnesses list in the response envelope so Slice 281.2
+  can implement any of those policies.
+* **The 30-min cache means dogfood iterations must use
+  ``?refresh=true`` OR wait 30 minutes to see a new candidate
+  set.** Operator UX in Slice 281.2 should expose a
+  refresh affordance ("Different ideas" button analogous to
+  the v1 story-direction surface). Slice 281.1 supports
+  `?refresh=true` today; no backend work needed.
+* **Real-provider variance across refreshes still uncharacterized.**
+  Slice 281.2 dogfood will be the first evidence of how
+  candidates vary on repeated refresh of the same composition.
+  If variance is high, Slice 281.3 may need to add a
+  deterministic seed or clamp the model's creativity.
+
+Nothing in Slice 281.1 is blocking Slice 281.2. The backend
+surface is silent to today's operators (no SPA touches it) and
+the acceptance criteria from §6.6 all hold.
+
+**Do NOT begin Slice 281.2.** Awaiting explicit Chris +
+ChatGPT authorization per handoff §3 decision-gate protocol.

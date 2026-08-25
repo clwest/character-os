@@ -1,0 +1,53 @@
+{
+  "slice": "281.1",
+  "started_utc": "2026-08-25T00:33:24.294502+00:00",
+  "finished_utc": "2026-08-25T00:33:29.756227+00:00",
+  "composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+  "result": "ok",
+  "elapsed_seconds": 5.462,
+  "model": "gpt-5.6-terra",
+  "cache": {
+    "hit": false,
+    "ttl_seconds": 1800
+  },
+  "substrate_summary": {
+    "prior_episodes_used": 11,
+    "existing_memories_used": 2,
+    "cast_count": 2,
+    "dialogue_chars": 1426
+  },
+  "tokens_input": 1366,
+  "tokens_output": 210,
+  "candidates_verbatim": [
+    {
+      "body": "Ruby amended the new closing routine with a mascot clause: no one locks up until the door is checked, all people are accounted for, and the mascot is confirmed outside the bakery.",
+      "kind": "world_detail",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Establishes a standing, slightly comic operational rule that can be tested once a mascot exists."
+    },
+    {
+      "body": "Ruby still wants Fox & Flour to have a welcoming bakery mascot for the neighborhood.",
+      "kind": "promise",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Keeps the mascot idea alive as an unresolved future addition to the bakery."
+    },
+    {
+      "body": "Tyson proposed installing a tiny bell to warn anyone reaching for the door without thinking.",
+      "kind": "action",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Provides a practical-but-comic invention that could reappear as a running gag or actually be installed later."
+    }
+  ],
+  "narrative_memory_write_delta": 0,
+  "memory_count_before": 19,
+  "memory_count_after": 19
+}

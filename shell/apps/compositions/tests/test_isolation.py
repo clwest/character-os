@@ -167,6 +167,15 @@ ALLOWED_FILES = {
     # (whole-cast + narrowed-witness + archived-since-render +
     # cross-workspace stub cases). Sanctioned test-side writer.
     "apps/memory/tests/test_memories_used_serializer.py",
+    # SESSION 281 Slice 281.1 — curator suggestion service +
+    # endpoint tests seed completed / draft / empty-brief
+    # Composition rows to exercise the read-only
+    # ``suggest_memories_from_composition`` service and the
+    # ``CompositionViewSet.suggested_memories`` GET action. The
+    # curator itself NEVER writes Composition or NarrativeMemory
+    # rows; the fixture seeding + one same-composition promotion
+    # (for cache-key rotation) are sanctioned test-side writes.
+    "apps/memory/tests/test_suggest_memories.py",
     # SESSION 269 §10 — talking_head narrative-memory lane tests seed
     # Composition + Episode + NarrativeMemory rows + solo talking_head
     # Composition/Step rows directly to exercise the ``retrieve_universe_memory``
