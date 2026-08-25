@@ -1149,8 +1149,8 @@ readings.
 ## §L11 Slice 281.1 landing SHAs
 
 ```
-Slice 281.1 primary landing SHA:  <filled in on next commit>
-Slice 281.1 SHA-trailer commit:   <filled in on next commit>
+Slice 281.1 primary landing SHA:  f2956d1
+Slice 281.1 SHA-trailer commit:   <appended in the same commit as this update>
 ```
 
 ## §L12 Slice 281.1 decision gate
