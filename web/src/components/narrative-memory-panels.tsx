@@ -65,7 +65,7 @@
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, Trash2, ArchiveRestore, Plus } from "lucide-react";
+import { Loader2, Trash2, ArchiveRestore, Plus, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
@@ -77,7 +77,9 @@ import {
   useNarrativeMemoriesByUniverse,
   useArchiveMemory,
   useUnarchiveMemory,
+  useSuggestedMemories,
   type NarrativeMemory,
+  type SuggestedMemoryCandidate,
 } from "@/lib/api/narrative-memories";
 
 
@@ -194,6 +196,11 @@ export function NarrativeMemoryPromotePanel({
           it back later.
         </p>
       </header>
+
+      <SuggestedMemoriesSection
+        compositionId={compositionId}
+        episodeId={episodeId}
+      />
 
       <div className="flex flex-col gap-3">
         <label
@@ -326,6 +333,346 @@ export function NarrativeMemoryPromotePanel({
         </ul>
       </div>
     </section>
+  );
+}
+
+
+// ============================================================
+// SESSION 281 Slice 281.2 — model-as-curator suggestion cards.
+// ============================================================
+//
+// Renders ABOVE the manual "What changed?" textarea inside
+// NarrativeMemoryPromotePanel. Presents a few candidate memory
+// bodies the operator MAY choose to remember. The operator
+// remains authoritative — every persistence path still runs
+// through the existing usePromoteMemories mutation with
+// witnessed_by: [] (whole-cast) so today's promotion contract
+// is preserved verbatim.
+//
+// Hidden-by-policy metadata (per Slice 281.2 authorization):
+//
+//   * kind (model-authored classification) — NOT rendered, NOT
+//     persisted. Slice 281.2 sends only body + witnessed_by: [];
+//     the backend serializer supplies the default kind/weight
+//     just as it does for today's textarea path.
+//   * witnesses (model-authored) — NOT rendered, NOT persisted.
+//     Whole-cast is the deliberate persistence policy for this
+//     slice; per-witness scoping remains a separate future
+//     product question.
+//   * narrative_gravity_note — MAY appear as a short natural-
+//     language hint under the card body, but only when the text
+//     reads as ordinary prose. If it contains banned
+//     implementation vocabulary it's dropped silently rather
+//     than exposed.
+//
+// Error / empty are effectively silent: the existing textarea
+// path stays fully usable. No refresh / "Different ideas"
+// affordance — curator variance is still a deferred research
+// question and Slice 281.2 first needs to learn whether the
+// initial set is understandable.
+
+interface SuggestedMemoriesSectionProps {
+  compositionId: string;
+  episodeId: string;
+}
+
+// Words the panel's operator-facing copy MUST NOT contain. Also
+// used as the hint-rendering guard: any narrative_gravity_note
+// whose lower-cased text contains any of these tokens is dropped
+// so implementation vocabulary can't leak through model output.
+// SESSION 281 handoff §2 banned-word list + defensive extras.
+const _CURATOR_BANNED_WORDS: readonly string[] = [
+  "narrativememorykind",
+  "narrative gravity",
+  "memory weight",
+  "peripheral",
+  "central",
+  "dialogue_callback",
+  "world_detail",
+  "world detail",
+  "callback",
+  "promise-kind",
+  "witnesses",
+  "witnessed_by",
+  "retrieval",
+  "embedding",
+  "vector",
+  "top_k",
+  "prompt",
+  "llm",
+  "model generated",
+  "ai generated",
+  "candidate",
+  "substrate",
+  "provenance",
+  "memory_id",
+  "latent thread",
+  "semantic continuation",
+];
+
+function _hintReadsNaturally(hint: string | undefined): boolean {
+  if (!hint) return false;
+  const cleaned = hint.trim();
+  if (!cleaned) return false;
+  const lower = cleaned.toLowerCase();
+  for (const word of _CURATOR_BANNED_WORDS) {
+    if (lower.includes(word)) return false;
+  }
+  return true;
+}
+
+export function SuggestedMemoriesSection({
+  compositionId,
+  episodeId,
+}: SuggestedMemoriesSectionProps) {
+  const q = useSuggestedMemories(compositionId);
+
+  const showLoading = q.isLoading;
+  // Error / empty both render as null so the manual textarea
+  // stays fully usable and the operator sees no failure state.
+  if (q.isError) return null;
+  if (!showLoading && (q.data?.candidates.length ?? 0) === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      className="flex flex-col gap-3 border-b pb-4"
+      data-testid="composition-suggested-memories"
+    >
+      <header className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          A few ideas from what just happened.
+        </span>
+        <p className="text-xs italic text-muted-foreground">
+          Remember the ones that might matter later.
+        </p>
+      </header>
+
+      {showLoading && (
+        <div
+          className="flex items-center gap-2 text-xs italic text-muted-foreground"
+          data-testid="composition-suggested-memories-loading"
+        >
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>Looking for what might matter…</span>
+        </div>
+      )}
+
+      {!showLoading && q.data && q.data.candidates.length > 0 && (
+        <ul
+          className="flex flex-col gap-2"
+          data-testid="composition-suggested-memories-list"
+        >
+          {q.data.candidates.map((candidate, i) => (
+            <SuggestedMemoryCard
+              key={`${i}-${candidate.body.slice(0, 40)}`}
+              index={i}
+              candidate={candidate}
+              compositionId={compositionId}
+              episodeId={episodeId}
+            />
+          ))}
+        </ul>
+      )}
+
+      {!showLoading && q.data && q.data.candidates.length > 0 && (
+        <div
+          className="pt-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground"
+          data-testid="composition-suggested-memories-divider"
+        >
+          Or write your own:
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+type CardStatus = "pending" | "editing" | "remembered" | "skipped";
+
+interface SuggestedMemoryCardProps {
+  index: number;
+  candidate: SuggestedMemoryCandidate;
+  compositionId: string;
+  episodeId: string;
+}
+
+function SuggestedMemoryCard({
+  index,
+  candidate,
+  compositionId,
+  episodeId,
+}: SuggestedMemoryCardProps) {
+  const promote = usePromoteMemories(compositionId);
+  const [status, setStatus] = useState<CardStatus>("pending");
+  const [draft, setDraft] = useState(candidate.body);
+  const [error, setError] = useState<string | null>(null);
+
+  const naturalHint = _hintReadsNaturally(candidate.narrative_gravity_note)
+    ? candidate.narrative_gravity_note.trim()
+    : null;
+
+  async function submit(body: string) {
+    setError(null);
+    const stripped = body.trim();
+    if (!stripped) {
+      setError("Add a sentence first.");
+      return;
+    }
+    try {
+      // Deliberate persistence policy for Slice 281.2 (per Chris's
+      // Slice authorization): body + witnessed_by: [] only. The
+      // model-authored kind + witnesses are hidden metadata and
+      // are NEVER passed through here — the backend serializer
+      // applies the same event/peripheral defaults today's
+      // textarea path relies on. Slice 281.3+ may revisit this
+      // if dogfood surfaces an operator need.
+      await promote.mutateAsync({
+        episode: episodeId,
+        memories: [
+          {
+            body: stripped,
+            witnessed_by: [],
+          },
+        ],
+      });
+      setStatus("remembered");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+        return;
+      }
+      throw err;
+    }
+  }
+
+  if (status === "skipped") return null;
+
+  if (status === "remembered") {
+    return (
+      <li
+        className="flex items-center gap-2 rounded-md border border-gold/40 bg-black/10 px-3 py-2 text-sm text-muted-foreground"
+        data-testid={`composition-suggested-memory-card-${index}`}
+        data-status="remembered"
+      >
+        <Check className="h-4 w-4 text-gold" aria-hidden />
+        <span data-testid={`composition-suggested-memory-remembered-${index}`}>
+          Remembered.
+        </span>
+      </li>
+    );
+  }
+
+  return (
+    <li
+      className="flex flex-col gap-2 rounded-md border border-fog/30 bg-black/10 p-3"
+      data-testid={`composition-suggested-memory-card-${index}`}
+      data-status={status}
+    >
+      {status === "editing" ? (
+        <textarea
+          className="min-h-[64px] rounded-md border border-fog/30 bg-black/20 px-2 py-1.5 text-sm text-foreground"
+          value={draft}
+          onChange={(ev) => setDraft(ev.target.value)}
+          data-testid={`composition-suggested-memory-edit-${index}`}
+          aria-label="Edit remembered detail"
+        />
+      ) : (
+        <p
+          className="text-sm text-foreground"
+          data-testid={`composition-suggested-memory-body-${index}`}
+        >
+          {candidate.body}
+        </p>
+      )}
+
+      {status !== "editing" && naturalHint && (
+        <p
+          className="text-[11px] italic text-muted-foreground"
+          data-testid={`composition-suggested-memory-hint-${index}`}
+        >
+          {naturalHint}
+        </p>
+      )}
+
+      {error && (
+        <p
+          className="text-xs text-destructive"
+          data-testid={`composition-suggested-memory-error-${index}`}
+        >
+          {error}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {status === "editing" ? (
+          <>
+            <Button
+              type="button"
+              onClick={() => submit(draft)}
+              disabled={promote.isPending || !draft.trim()}
+              data-testid={`composition-suggested-memory-save-${index}`}
+            >
+              {promote.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Remember this
+            </Button>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setDraft(candidate.body);
+                setStatus("pending");
+                setError(null);
+              }}
+              data-testid={`composition-suggested-memory-cancel-${index}`}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              onClick={() => submit(candidate.body)}
+              disabled={promote.isPending}
+              data-testid={`composition-suggested-memory-remember-${index}`}
+            >
+              {promote.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Remember this
+            </Button>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setDraft(candidate.body);
+                setStatus("editing");
+                setError(null);
+              }}
+              data-testid={`composition-suggested-memory-edit-btn-${index}`}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setStatus("skipped")}
+              data-testid={`composition-suggested-memory-skip-${index}`}
+            >
+              Skip
+            </button>
+          </>
+        )}
+      </div>
+    </li>
   );
 }
 

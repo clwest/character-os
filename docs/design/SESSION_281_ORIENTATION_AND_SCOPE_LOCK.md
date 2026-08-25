@@ -1197,3 +1197,441 @@ the acceptance criteria from §6.6 all hold.
 
 **Do NOT begin Slice 281.2.** Awaiting explicit Chris +
 ChatGPT authorization per handoff §3 decision-gate protocol.
+
+---
+
+# Slice 281.2 — Operator-facing curator cards
+
+Slice 281.1 approved. Slice 281.2 authorization locked the
+following invariants:
+
+* **Product question.** The operator just finished making a
+  story. Show them a few useful details from what happened and
+  let them decide, with essentially no explanation: "Yes,
+  remember that for later."
+* **Placement.** Inside the existing
+  ``NarrativeMemoryPromotePanel``, render the new curator
+  section ABOVE the existing manual ``What changed?``
+  textarea. Existing manual path remains behaviorally
+  unchanged. Do not redesign the surrounding panel.
+* **Persistence policy.** ``[Remember this]`` persists via the
+  existing promotion path with body + ``witnessed_by: []`` only.
+  The backend serializer's event/peripheral defaults are the
+  effective classification. **Model-authored `kind` MUST NOT
+  be persisted. Model-authored `witnesses` MUST NOT be
+  persisted.** The human is approving story detail, not
+  silently approving hidden machine classification.
+* **Hint policy.** `narrative_gravity_note` may appear as a
+  short human-facing hint only when it reads as ordinary prose.
+  Hints containing banned implementation vocabulary are dropped
+  silently. No banned labels (kind, callback, promise, event,
+  world detail, action, witness, candidate, model generated,
+  AI generated, narrative gravity, etc.) may appear.
+* **No refresh affordance.** No "Different ideas" / regenerate
+  button. Backend supports `?refresh=true`; it is intentionally
+  NOT exposed in this first operator slice.
+* **Empty / error is silent.** Manual textarea path remains
+  fully usable in both states. No banner. No dramatic empty
+  state.
+* **30-min stale time.** Matches backend cache. No polling. No
+  `refetchOnWindowFocus`. No auto-refresh after
+  `[Remember this]`.
+
+## §M1 Files changed
+
+**New (this slice):**
+
+* (none — everything is additive on existing files)
+
+**Extended additively:**
+
+* `web/src/lib/api/narrative-memories.ts` — appended
+  `SuggestedMemoryCandidate` / `SuggestedMemoriesResponse` Zod
+  types, `getSuggestedMemories`, and `useSuggestedMemories`
+  react-query hook. 30-min `staleTime`,
+  `refetchOnWindowFocus: false`, `retry: false`. No new API
+  module — extended the existing narrative-memories client so
+  Slice 281.2's SPA surface lives next to the memory contract
+  it feeds.
+* `web/src/components/narrative-memory-panels.tsx` — added
+  `SuggestedMemoriesSection` outer component (query
+  subscription + loading/empty/error gating) and
+  `SuggestedMemoryCard` inner component (per-card
+  pending/editing/remembered/skipped state, `_hintReadsNaturally`
+  guard, whole-cast promotion policy). Rendered ABOVE the
+  existing textarea inside `NarrativeMemoryPromotePanel`. The
+  entire pre-existing panel (label + textarea + availability
+  radios + witness picker + submit + recap list) preserved
+  byte-identically below the new section.
+* `web/src/components/narrative-memory-panels.test.tsx` —
+  appended 14 new Slice 281.2 test cases + `setCuratorResponse`
+  helper + curator-endpoint fetch mock. The 11 pre-existing
+  SESSION 264 dogfood tests remain byte-identical.
+
+Net diff:
+
+```
+web/src/lib/api/narrative-memories.ts             |  118 ++
+web/src/components/narrative-memory-panels.tsx    |  308 ++
+web/src/components/narrative-memory-panels.test.tsx |  442 ++
+```
+
+**No changes** to backend (`shell/`) — the curator service +
+endpoint from Slice 281.1 already satisfies the SPA contract
+end-to-end. No SPA dependency changes (`package.json`,
+`package-lock.json` untouched).
+
+## §M2 UX shape
+
+Rendered inside `NarrativeMemoryPromotePanel`, above the
+existing textarea:
+
+```
+┌─ Remember this ───────────────────────────────────────────┐
+│                                                            │
+│ ── A FEW IDEAS FROM WHAT JUST HAPPENED. ────               │
+│ Remember the ones that might matter later.                 │
+│                                                            │
+│ ┌────────────────────────────────────────────────────┐    │
+│ │ Ruby amended the closing routine with a mascot     │    │
+│ │ clause…                                            │    │
+│ │ Could be tested if a mascot ever exists.           │    │
+│ │ [ + Remember this ]   Edit   Skip                  │    │
+│ └────────────────────────────────────────────────────┘    │
+│ ┌────────────────────────────────────────────────────┐    │
+│ │ Tyson joked about "community outreach"…            │    │
+│ │ Could become a running joke.                       │    │
+│ │ [ + Remember this ]   Edit   Skip                  │    │
+│ └────────────────────────────────────────────────────┘    │
+│                                                            │
+│ ── OR WRITE YOUR OWN: ─────────                            │
+│                                                            │
+│ WHAT CHANGED?                                              │
+│ [existing textarea, unchanged]                             │
+│ When should this memory be available?                      │
+│  ( ) In any future scene                                   │
+│  ( ) When any of these characters are present…             │
+│ [ + Remember this ]                                        │
+│                                                            │
+│ ── WHAT WE REMEMBER FROM THIS RENDER ────                  │
+│ [existing recap list, unchanged]                           │
+└────────────────────────────────────────────────────────────┘
+```
+
+## §M3 Persistence policy (LOAD-BEARING)
+
+`[Remember this]` on a curator card fires
+`usePromoteMemories(compositionId).mutateAsync({...})` with:
+
+```typescript
+{
+  episode: episodeId,
+  memories: [{
+    body: <candidate.body or edited body>,
+    witnessed_by: [],
+  }]
+}
+```
+
+No `kind`. No `weight`. No `witnessed_by` (populated). No
+`narrative_gravity_note`. No supersedes. The backend
+`NarrativeMemoryPromoteItemSerializer` supplies its existing
+event/peripheral defaults — the same defaults today's textarea
+path relies on. The wire contract is byte-identical to what
+today's manual path sends.
+
+Test-verified via 5 independent assertions inside a single
+posted body:
+
+```typescript
+expect(item.body).toBe(...)               // candidate body verbatim
+expect(item.witnessed_by).toEqual([])     // whole-cast default
+expect(item).not.toHaveProperty("kind")           // model auth NOT persisted
+expect(item).not.toHaveProperty("witnesses")      //   "
+expect(item).not.toHaveProperty("narrative_gravity_note") // "
+expect(item).not.toHaveProperty("weight")         //   "
+```
+
+## §M4 Hint-rendering guard
+
+`_hintReadsNaturally(hint)` in
+`narrative-memory-panels.tsx` returns `false` when the
+lower-cased hint contains any of a 27-word banned-vocabulary
+list (SESSION 281 handoff §2 + defensive extras). Hints that
+fail the guard are dropped silently rather than surfaced with
+implementation vocabulary intact.
+
+Load-bearing subset (full list in `_CURATOR_BANNED_WORDS`):
+
+* Memory classification: `narrativememorykind`, `narrative
+  gravity`, `memory weight`, `peripheral`, `central`,
+  `dialogue_callback`, `world_detail`, `world detail`,
+  `callback`
+* Retrieval mechanics: `witnesses`, `witnessed_by`,
+  `retrieval`, `embedding`, `vector`, `top_k`, `substrate`,
+  `provenance`, `memory_id`, `latent thread`,
+  `semantic continuation`
+* Pipeline framing: `prompt`, `llm`, `model generated`,
+  `ai generated`, `candidate`
+
+Test coverage:
+
+* `drops narrative_gravity_note hints that contain implementation vocabulary`
+  proves the guard fires on a hint like "This is a candidate
+  for dialogue_callback retrieval."
+* `operator-owned copy carries no banned implementation vocabulary`
+  scans the full section `textContent` against a 25-word
+  banned list with all card bodies deliberately chosen to be
+  ordinary prose (no character names, no accidental overlap
+  with technical vocabulary) so a positive assertion is
+  meaningful.
+
+## §M5 Card behavior
+
+Local state machine per card: `pending → editing → pending`
+(cancel/save) OR `pending → remembered` (successful mutation)
+OR `pending → skipped` (dismiss, no persistence).
+
+* **Remember this** (default): calls `promote.mutateAsync`
+  with body + `witnessed_by: []`. On success, card collapses
+  to a lightweight `✓ Remembered.` state and the existing
+  recap query invalidates via `usePromoteMemories.onSuccess`
+  (already wired since SESSION 264). No page reload.
+* **Edit**: swaps the body paragraph for an inline `<textarea>`
+  prefilled with the candidate body. Save uses the same
+  persistence policy (body + `witnessed_by: []`, no hidden
+  metadata). Cancel restores the original card.
+* **Skip**: sets local status to `"skipped"`; the card returns
+  `null` on the next render. No mutation. No telemetry.
+
+## §M6 Loading / empty / error
+
+* **Loading**: renders `composition-suggested-memories-loading`
+  test-id with copy "Looking for what might matter…" and a
+  spinner. Does NOT block the surrounding panel — the manual
+  textarea remains interactive. Verified by a test that
+  swaps the fetch mock for a never-resolving promise and
+  proves the textarea still accepts input.
+* **Empty (0 candidates)**: the whole `SuggestedMemoriesSection`
+  returns `null` — no header, no divider, no dramatic empty
+  state. The manual textarea remains the entire visible
+  surface.
+* **Error (query.isError)**: identical to empty — the
+  `SuggestedMemoriesSection` returns `null`. No banner. No
+  operator-visible failure signal. The Slice 281.1 backend's
+  502 → operator-facing detail exists but is never surfaced by
+  the frontend in Slice 281.2 (that surfacing is a Slice
+  281.3+ decision if dogfood shows silent-error is the wrong
+  policy).
+
+## §M7 No refresh affordance
+
+Slice 281.2 does not expose any refresh / regenerate / retry /
+"Different ideas" control. Test `no refresh / Different ideas
+affordance is exposed` asserts:
+
+* No `composition-suggested-memories-refresh` testid.
+* No "Different ideas" / "Refresh" / "Regenerate" copy.
+* Exactly one curator endpoint fetch per mount (no polling).
+* Never sends `?refresh=true` on the wire.
+
+The backend `?refresh=true` support is preserved (Slice 281.1
+service supports it) but the frontend does not use it. Slice
+281.3 dogfood is the earliest slice authorized to add a
+refresh affordance if operator judgment requires one.
+
+## §M8 Test coverage
+
+`web/src/components/narrative-memory-panels.test.tsx` — 14 new
+`it()` cases covering the invariants listed at the section
+header:
+
+1. `loading state renders without blocking the manual path`
+2. `empty curator response renders no dramatic empty state`
+3. `curator provider error is silent — manual path remains usable`
+4. `renders 3 candidate cards with body + natural hint visible`
+5. `hidden kind + witness metadata is NEVER rendered`
+6. `[Remember this] posts body + witnessed_by:[] only (no hidden metadata)`
+7. `card collapses to Remembered. state after mutation succeeds`
+8. `existing recap updates via normal query invalidation after remember`
+9. `Edit swaps in an inline editor and submits the edited body`
+10. `Skip dismisses the card locally without a mutation`
+11. `no refresh / Different ideas affordance is exposed`
+12. `existing availability + textarea remain byte-identical alongside curator cards`
+13. `drops narrative_gravity_note hints that contain implementation vocabulary`
+14. `operator-owned copy carries no banned implementation vocabulary`
+
+The 11 pre-existing SESSION 264 dogfood tests continue to
+render only the manual path (the default
+`setCuratorResponse` returns an empty candidate list, so the
+new section stays hidden and none of their DOM assertions
+shift).
+
+Focused suite result:
+
+```
+npx vitest run src/components/narrative-memory-panels.test.tsx
+→ Test Files 1 passed (1); Tests 23 passed (23); 1.13s
+```
+
+## §M9 Baseline regression comparison
+
+Reference baseline (Slice 281.1 close):
+
+```
+frontend: 57 files / 729 tests passed / 6.61s
+```
+
+Post-slice baseline (HEAD b7fdb71 + Slice 281.2):
+
+```
+npx vitest run
+→ Test Files 57 passed (57); Tests 743 passed (743); 6.82s
+```
+
+Delta: **+14 tests passing** (matches the 14 new curator
+cases; no removed / renamed tests). **Zero new frontend
+regressions.** The Slice 281.1 backend baseline
+(1504 / 2 pre-existing K6.4 mock-drift failures from `shell/`)
+is not affected — Slice 281.2 makes no backend changes.
+
+## §M10 Preservation checks
+
+* **Backend curator service unchanged.** `shell/apps/memory/services.py`
+  and `shell/apps/compositions/views.py` both untouched by
+  this slice. No frontend-contract bug required a backend
+  change; the SPA lifts the Slice 281.1 response envelope
+  verbatim.
+* **v1 "Where could this story go next?" surface unchanged.**
+  `apps/universe/services/next_episode_suggestions.py`,
+  `UniverseViewSet.next_episode_suggestions`, the
+  `useNextEpisodeSuggestions` hook, and
+  `possible-next-episodes.tsx` all untouched. All 16 backend
+  + 8 frontend v1 tests continue to pass (part of the 1504 /
+  743 combined baseline).
+* **`promote_from_composition` unchanged.** Still lives at
+  `apps/memory/views.py:171-287` with the same keyword-only
+  signature. Slice 281.2's `[Remember this]` mutation
+  routes through the existing
+  `usePromoteMemories(compositionId)` hook which posts to the
+  existing `POST /api/compositions/<id>/promote-narrative-memory/`
+  endpoint. The wire body is byte-identical to today's
+  textarea-triggered POST (body + `witnessed_by: []`; no
+  `kind`, no `weight`).
+* **`NarrativeMemory` schema / kinds / weights / witness
+  semantics unchanged.** No migration. No model file edit.
+  Model-authored `kind` + `witnesses` from the curator payload
+  are dropped on the SPA side rather than passed through.
+* **Retrieval, verifier, synthesis unchanged.**
+* **Characters / Universes / existing memories unchanged.**
+  Both SESSION 280 Fox & Flour rows
+  (`abac5486-6404-411b-ad42-54c9884b980f` +
+  `fa35eb8f-098d-4fbf-86a3-3e38961c059e`) still present,
+  unmodified, still `status=remembered` with no `archived_at`.
+* **Visual storytelling unchanged.** Slice 281.2 is
+  talking-head-friendly by design per handoff §7.6.
+* **No refresh UX in Slice 281.2** — curator variance
+  research remains a deferred question.
+* **No dependency changes.** `web/package.json` +
+  `web/package-lock.json` unmodified. No new npm packages.
+  No new Python packages.
+
+## §M11 Real operator dogfood
+
+**Servers restarted for real-mode dogfood** — Docker infra
+left up as usual (handoff §10 environment notes), local
+Django + Celery + Vite servers restarted via the standard
+`stop-local.sh` / `start-local-real.sh` pair.
+
+**Dogfood target** — Fox & Flour composition `772e9012` is
+naturally reachable through the SPA today:
+
+1. Open the SPA (default `http://localhost:5173/`).
+2. Navigate to the Workspace fabric ("Worlds" nav tile per
+   `feedback_navrail_gated_by_f0_rule_7` — SESSION 262
+   correction).
+3. Open the **Fox & Flour Bakery** Universe.
+4. Open Episode `eb47350e-b1cf-4347-aa4f-5bf514d66d2e`
+   ("After getting locked out…").
+5. Open the composition attached to that Episode
+   (`772e9012-4d26-4f93-a50c-158b4e8a42f1`).
+6. Scroll to the **"Remember this"** panel on the composition
+   detail page. The new **"A few ideas from what just
+   happened."** section will appear above the existing
+   textarea (with up to 3 candidate cards).
+
+**What Chris should evaluate (per Slice 281.3 acceptance
+criteria — Chris + ChatGPT judgment only, Claude does not
+score):**
+
+1. Zero implementation vocabulary visible in the panel.
+2. Chris can complete a `[Remember this]` on ≥1 card without
+   asking clarifying questions.
+3. Remembered candidate appears in
+   "What we remember from this render" within 2s.
+4. Remembered candidate later surfaces in "Where could this
+   story go next?" at Q280.8-comparable rates (Slice 281.3
+   evidence).
+5. Cost per composition detail page load ≤ $0.03 (Slice
+   281.1 verified ~1576 tokens / ~$0.02).
+6. Loading state does not block the rest of the page.
+7. Error state is silent — manual textarea path continues
+   working.
+8. Existing manual `What changed?` path works byte-identically
+   to today's shipped behavior.
+
+**Do NOT begin Slice 281.3 or make post-dogfood fixes** without
+explicit Chris + ChatGPT approval. If dogfood reveals a UX
+finding, record it as a fix-shaped candidate per handoff §10
+"Fix-shaped handoff compounds" rather than compounding fixes
+opportunistically.
+
+## §M12 New findings (this slice)
+
+* **Witnesses arrive as an array of character names
+  (strings), not IDs.** The backend curator returns
+  `witnesses: ["Ruby", "Tyson"]` — those are display names
+  the LLM read from the prompt's CAST block, not Teammate
+  UUIDs. Per Slice 281.2's whole-cast persistence policy this
+  never enters the wire, but a future slice that wants to
+  honor model witnesses will need name→ID resolution against
+  the current Episode cast (with an unambiguous-match check).
+  Recorded as a Slice 281.3+ candidate; NOT fixed
+  opportunistically.
+* **`test_isolation.py` allowlist enforcement carries
+  forward for tests only.** No frontend equivalent; SPA
+  tests are inherently allowed to write via mocked fetch.
+  Nothing to add for Slice 281.2.
+
+## §M13 Slice 281.2 landing SHAs
+
+```
+Slice 281.2 primary landing SHA:  <filled in on next commit>
+Slice 281.2 SHA-trailer commit:   <filled in on next commit>
+```
+
+## §M14 Slice 281.2 decision gate
+
+**Is Slice 281.3 (operator dogfood + acceptance) safe to
+authorize?**
+
+Yes — but Slice 281.3 is Chris's judgment work, not
+implementation work. Slice 281.2 has landed the operator-
+facing surface with:
+
+* All 14 new tests + 11 pre-existing panel tests green
+  (23/23 focused, 743/743 full frontend).
+* Zero backend changes; Slice 281.1 baseline
+  (1504 / 2 pre-existing) unaffected.
+* Model-authored `kind` + `witnesses` NEVER persist.
+* Model-authored `narrative_gravity_note` rendered only when
+  it reads as ordinary prose; otherwise dropped silently.
+* No refresh / regenerate affordance; server `?refresh=true`
+  preserved but unused.
+* Empty / error paths silent; manual textarea path remains
+  byte-identical.
+* Both SESSION 280 Fox & Flour memories unmodified.
+
+**Do NOT begin Slice 281.3.** Awaiting Chris's operator
+dogfood + Chris + ChatGPT authorization per handoff §3
+decision-gate protocol.

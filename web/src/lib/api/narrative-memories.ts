@@ -275,3 +275,114 @@ export function useUnarchiveMemory() {
     },
   });
 }
+
+// ---- SESSION 281 Slice 281.2 — model-as-curator suggestions ----
+//
+// Read-only surface: given a completed Composition, return a small
+// list of candidate memory bodies the operator MAY choose to
+// promote via the existing [Remember this] flow. Backend contract
+// at shell/apps/memory/services.py::suggest_memories_from_composition
+// + shell/apps/compositions/views.py::CompositionViewSet.suggested_memories.
+//
+// Load-bearing rules mirrored on the SPA side:
+//
+// - The backend returns hidden metadata (kind, witnesses,
+//   narrative_gravity_note). The SPA renders body + optional
+//   natural hint only; kind + witnesses are NEVER shown and NEVER
+//   passed through to `promote_from_composition`. Slice 281.2's
+//   persistence policy: body + witnessed_by: [] (whole-cast) via
+//   the existing usePromoteMemories mutation.
+// - The 30-min stale time matches the backend cache. No polling,
+//   no refetch on window focus. `?refresh=true` is intentionally
+//   NOT exposed in this first operator slice (curator variance
+//   is still a deferred research question).
+// - Loading is silent-friendly: the panel renders around it, the
+//   existing manual `What changed?` textarea stays fully usable.
+// - Errors are silent to the operator. The manual path continues
+//   to work; no banner is shown.
+
+const curatorCandidateSchema = z.object({
+  body: z.string(),
+  // Hidden implementation metadata — carried over the wire so the
+  // backend contract stays honest but NEVER rendered and NEVER
+  // used as durable authority in Slice 281.2. Slice 281.3+ may
+  // revisit if dogfood establishes a need.
+  kind: z.string().default(""),
+  witnesses: z.array(z.string()).default([]),
+  // Optional natural-language hint. Rendered only when it reads
+  // as ordinary prose — the panel's rendering guard drops any
+  // hint that contains banned implementation vocabulary.
+  narrative_gravity_note: z.string().default(""),
+});
+
+const suggestedMemoriesResponseSchema = z.object({
+  candidates: z.array(curatorCandidateSchema),
+  substrate_summary: z.record(z.string(), z.unknown()).default({}),
+  generated_at: z.string(),
+  model: z.string(),
+  cache: z
+    .object({
+      hit: z.boolean(),
+      ttl_seconds: z.number().int().nonnegative(),
+    })
+    .passthrough(),
+});
+
+export type SuggestedMemoryCandidate = z.infer<typeof curatorCandidateSchema>;
+export type SuggestedMemoriesResponse = z.infer<
+  typeof suggestedMemoriesResponseSchema
+>;
+
+export async function getSuggestedMemories(
+  compositionId: string,
+  opts: { n?: number; refresh?: boolean } = {},
+): Promise<SuggestedMemoriesResponse> {
+  const params = new URLSearchParams();
+  if (opts.n != null) params.set("n", String(opts.n));
+  if (opts.refresh) params.set("refresh", "true");
+  const qs = params.toString();
+  return apiJson(
+    `/api/compositions/${compositionId}/suggested-memories/${qs ? `?${qs}` : ""}`,
+    {},
+    (json) => suggestedMemoriesResponseSchema.parse(json),
+  );
+}
+
+/**
+ * Query for the composition-scoped curator's candidate memory
+ * suggestions. Slice 281.2 wires this into the composition detail
+ * page's NarrativeMemoryPromotePanel. See the SESSION 281 audit
+ * doc's Slice 281.2 section for design + preservation rules.
+ */
+export function useSuggestedMemories(
+  compositionId: string | undefined,
+  opts: {
+    n?: number;
+    enabled?: boolean;
+  } & Omit<
+    UseQueryOptions<SuggestedMemoriesResponse>,
+    "queryKey" | "queryFn"
+  > = {},
+) {
+  const { n, enabled = true, ...queryOptions } = opts;
+  return useQuery({
+    queryKey: [
+      "compositions",
+      compositionId,
+      "suggested-memories",
+      n ?? 3,
+    ],
+    queryFn: () => getSuggestedMemories(compositionId!, { n }),
+    enabled: !!compositionId && enabled,
+    // Match the server-side 30-minute cache so a fresh mount
+    // within the window doesn't re-fetch. Slice 281.2 does NOT
+    // expose a refresh affordance — the initial set stays put
+    // until the cache rotates naturally (server-side, when a new
+    // same-composition [Remember this] lands and rotates the
+    // cache key).
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    ...queryOptions,
+  });
+}
