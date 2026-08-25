@@ -1635,3 +1635,673 @@ facing surface with:
 **Do NOT begin Slice 281.3.** Awaiting Chris's operator
 dogfood + Chris + ChatGPT authorization per handoff §3
 decision-gate protocol.
+
+---
+
+# Slice 281.3 — Dogfood Finding + Story Execution Investigation
+
+**Type: AUDIT / DIAGNOSIS. No implementation. No fix.**
+Slice 281.2 shipped. The first end-to-end operator dogfood of
+the full storyteller → curator → operator → memory → future-
+story loop exposed a **story-execution** finding that is
+distinct from every SPA-side surface Slice 281.1 / 281.2
+delivered. Chris explicitly excluded a curator-UI failure
+diagnosis; this section audits the pipeline that produced
+composition `565cd8c8` and answers the falsifiable questions
+Q281.3-A / B / C.
+
+## §N1 Dogfood sequence (verbatim from operator)
+
+1. Reviewed the SESSION 281 curator cards on Fox & Flour
+   composition `772e9012-4d26-4f93-a50c-158b4e8a42f1`.
+2. Chose to remember exactly ONE candidate:
+   > "Ruby still wants Fox & Flour to have a welcoming mascot
+   > for the neighborhood."
+
+   Promotion succeeded → `NarrativeMemory 73acdfc0-44a1-40a0-abdc-e4f8069f6924`
+   (`kind=event`, `status=remembered`, `witnesses=[]` whole-
+   cast, `source_composition=772e9012`).
+3. Chose an existing LIVE "Where could this story go next?"
+   v1 suggestion:
+   > "A customer asks Fox & Flour to create a celebration cake
+   > for an event tied to the neighborhood baking competition."
+4. Used it verbatim to create a new Episode + Composition. The
+   composition completed successfully:
+   * `Composition 565cd8c8-2cf7-47e6-9f01-f57103193648`
+     (status=completed, template=dialogue_scene,
+     target_duration=90s, synthesis_attempts=2, verified,
+     0 warnings).
+   * `Episode f4faa13b-6026-47d8-becc-b7189a46f130`
+     (title = topic, operator_topic = topic).
+5. Curator subsequently returned three suggestions on
+   `565cd8c8`; Chris chose to preserve **none** of them.
+
+## §N2 Operator judgment (verbatim)
+
+Chris strongly disliked the resulting story. His diagnosis:
+
+> "An event-shaped Episode premise — 'A customer asks Fox &
+> Flour to create a celebration cake…' — became a conversation
+> ABOUT how Ruby and Tyson WOULD HANDLE the order rather than
+> a story in which the order/request actually happens and
+> creates consequences."
+>
+> "It feels more like a Fox & Flour employee training video
+> than an Episode where something happens."
+
+Additional observation on memory use:
+
+> "The retrieved mascot memory was mechanically used. […]
+> operator/product judgment is that the callback feels
+> somewhat inserted because the memory was available rather
+> than naturally necessary to the scene."
+
+## §N3 Exact retrieved artifacts on `565cd8c8`
+
+**Operator topic** (Episode.operator_topic +
+Composition.operator_topic, verbatim identical):
+
+> "A customer asks Fox & Flour to create a celebration cake
+> for an event tied to the neighborhood baking competition."
+
+**Retrieved NarrativeMemory** (`top_k=1`, matched via topic
+embedding — see §N7 mechanics):
+
+* `73acdfc0-44a1-40a0-abdc-e4f8069f6924` — `kind=event`,
+  `status=remembered`, `witnesses=[]` (whole-cast), body:
+  > "Ruby still wants Fox & Flour to have a welcoming mascot
+  > for the neighborhood."
+
+  This is the memory Chris promoted in step (2) above.
+
+**Retrieved knowledge chunks** (5 total, both cast):
+
+* `3bfea692` — Fox & Flour Hours (SHARED)
+* `219bcc30` — Fox & Flour holiday policy (SHARED)
+* `a02de62d` / `2548f826` / `a99dba2d` — Tyson's Pastry Pairing
+  Specialty (Tyson-scoped, 3 chunks of a coffee/pastry
+  pairing framework)
+
+**Same 5 chunks were also retrieved for `772e9012`** (the
+comparative-strong specimen from step 2 — see §N4). Knowledge
+substrate did NOT differ between the strong and weak
+specimens. Same 5-chunk mix. Same K2 corpus.
+
+**No pinned opener** on `565cd8c8`. No operator-supplied
+opener text; no `opener` param on any of the 10
+`generate_avatar_speech` steps. The first turn of the
+dialogue was chosen by the synthesizer.
+
+**Both synthesis attempts** (attempt-1 pre-corrective,
+attempt-2 post-corrective) opened with the same "we got a
+question — before you start sketching anything, what do we
+need to ask?" shape. The corrective hint was purely a
+length reduction (1584 → 1166 chars, ~122s → ~90s) and
+explicitly preserved "the conversational beats and causal
+chain… character identity; factual grounding; conversational
+causality; the scene's arc; the ending payoff." **The
+procedural shape was baked in at attempt-1 and preserved
+through corrective.** The corrective pass is not the culprit.
+
+**Final synthesized dialogue** (10 turns; full text in §M11 /
+composition record — key evidence excerpted here):
+
+* Turn 0 (Tyson): "We got a celebration-cake question tied to
+  the neighborhood baking competition. Before you start
+  sketching anything, what do we need to ask?"
+* Turn 1 (Ruby): "What they're celebrating, when they need
+  pickup, and who the cake is for. …"
+* Turns 2-5: alternating operational discussion — competition
+  cake vs celebration cake, reading minds through the phone,
+  neighborhood nod vs simpler design.
+* Turn 6 (Tyson): "You're thinking of the mascot again, aren't
+  you?"
+* Turn 7 (Ruby): "Maybe. I still think the neighborhood
+  deserves a welcoming little face. But only if the customer
+  likes the idea; it should feel like their celebration
+  first."
+* Turns 8-9: closing procedural summary — "That's the right
+  order. We'll ask about the event, the pickup timing, and
+  whether they want a neighborhood nod or something simpler."
+  + a punchline about being "extremely patient."
+
+## §N4 Comparative specimen — `772e9012` (strong)
+
+Same Universe, same cast, same knowledge chunks, same target
+duration (90s), same template (`dialogue_scene`), same model.
+Different operator topic. Different narrative outcome.
+
+**Operator topic:**
+
+> "After getting locked out, Ruby proposes a foolproof closing
+> routine, only for the new bakery mascot idea to complicate
+> it."
+
+**Structural comparison of the two operator topics:**
+
+|                          | `772e9012` (strong)          | `565cd8c8` (weak)                             |
+|--------------------------|-------------------------------|-------------------------------------------------|
+| Grammar                  | "After X, Ruby proposes Y, only for Z" | "A customer asks Fox & Flour…"          |
+| On-stage subject         | **Ruby** (named cast member)  | **A customer** (off-stage, not in cast)          |
+| Action verb              | **proposes** (character does something) | **asks** (an off-stage actor requests) |
+| Complication built in    | **yes** — "only for Z"        | **no** — a request with no explicit obstacle    |
+| Prior context anchored   | "After getting locked out"    | "for an event tied to the baking competition"   |
+| Scene-native frame       | already IN a `setup → disagreement → payoff` shape | invites a `question → answer → correction` shape (the LLM naturally interprets the topic as characters deliberating about how to answer the ask) |
+
+`772e9012` matches the Writing Contract's
+`_DIALOGUE_NARRATIVE_SHAPES_BLOCK` shape #1 (`setup →
+disagreement → payoff`) verbatim: Ruby proposes → Tyson
+complicates → mascot-clause payoff. The topic itself pre-
+committed the scene to have an on-stage character do
+something, with a named complication.
+
+`565cd8c8` matches shape #7 in the same list —
+`straight explanation with comedic side-commentary`. There
+is no on-stage character in the topic sentence; the topic
+describes an off-stage customer's ask that arrives at the
+counter. The dialogue_scene primitive's contract absorbs
+this as "Tyson raises the ask + Ruby answers the ask + they
+riff." That's precisely what appeared in attempts 1 and 2.
+
+**No pipeline element between the topic and the dialogue is
+doing shape correction here.** The topic is doing all the
+shaping.
+
+## §N5 Q281.3-A — Why did the event-shaped premise become discussion?
+
+**Answer:** the operator topic sentence is the dominant
+shaping variable, and its grammar was procedural.
+
+Evidence, layer by layer:
+
+### N5.1 Pipeline trace
+
+1. **Episode topic → Composition topic (unchanged).**
+   `Episode.operator_topic` and `Composition.operator_topic`
+   are byte-identical for `565cd8c8`. No normalization,
+   no rewrite, no cleanup step interposed.
+2. **Composition topic → synthesis prompt §5 TASK
+   (verbatim).**
+   `dialogue_synthesis._build_task_section` line 811 emits
+   the topic literally:
+   > `TOPIC:\n{topic.strip() or '(no topic supplied — use §1)'}`
+
+   No "dramatize the event," "put the request on stage,"
+   "show the customer arriving," or comparable framing
+   instruction is added. The task section supplies the topic
+   plus soft turn-count / duration / cast-alias guidance
+   only. Task is a passive carrier.
+3. **§4 Writing Contract shape (`dialogue_scene`).**
+   `writing_contract._dialogue_scene_contract` line 405
+   opens with:
+   > "The scene is a conversation between the characters
+   > introduced in Section 2. Every turn is spoken by one
+   > character."
+
+   The DIALOGUE INVARIANTS + WATCHABILITY + ANTI-PATTERNS
+   blocks all describe **how the characters talk**, not
+   whether events happen on-screen. The
+   `_DIALOGUE_NARRATIVE_SHAPES_BLOCK` menu contains eight
+   shapes; **all eight are talk shapes** (`setup →
+   disagreement → payoff`, `question → answer → correction`,
+   etc.). There is no `event arrives → character response →
+   consequence` shape and no "dramatize the ask on-screen"
+   shape. This is by design — `dialogue_scene` is a
+   two-character conversation primitive.
+4. **§1 Factual Basis — WORLD SHAPE + SHARED CANON.**
+   Universe brief: "Fox & Flour Bakery is a warm neighborhood
+   artisan bakery… celebration cakes." Retrieval fed 2
+   shared canon chunks (hours + holiday policy) and Tyson's
+   3-chunk pastry-pairing framework.
+5. **§1 Factual Basis — per-character BUSINESS SHAPE.** Both
+   Teammates carry a `business_brief` describing customer-
+   service roles:
+   * Ruby: "…custom celebration cakes. The bakery focuses
+     on locally sourced ingredients, small-batch baking,
+     and creating a warm community gathering place where
+     every customer feels like a regular."
+   * Tyson: "…Knows the bakery's breads, pastries, seasonal
+     desserts, celebration cakes, coffee pairings,
+     **customer pickup flow**, and the everyday questions
+     **people ask before ordering**. **Helps customers
+     choose what fits the occasion without
+     overcomplicating it.**"
+
+   Tyson's brief in particular pre-positions him as a
+   customer-service explainer. When the topic supplies a
+   customer question and the business shape says "helps
+   customers choose," the natural composed reading is
+   "Tyson explains how to help this customer."
+6. **§1 Factual Basis — NARRATIVE MEMORY** (see §N6).
+7. **Attempt-1 output** matches the composed shape.
+8. **Corrective hint** (attempt-1 → attempt-2) is purely a
+   length reduction with explicit "preserve conversational
+   beats / character identity / arc / ending payoff"
+   instructions. The corrective pass is not doing shape
+   correction; it is length-preserving the failure.
+
+### N5.2 Where the "talk about it" behavior most plausibly entered
+
+**The interaction between the topic grammar and the
+`dialogue_scene` primitive's built-in conversation frame.**
+Specifically:
+
+* The topic supplies an off-stage actor and a request but no
+  on-stage character taking action.
+* The `dialogue_scene` primitive is by-design a two-
+  character conversation; it does not have an off-stage-
+  event → on-stage-consequence shape in its narrative
+  menu.
+* The two present cast members (Ruby, Tyson) both carry
+  Teammate `business_brief` fields that describe them as
+  customer-service explainers.
+* Result: the highest-probability reading of "a customer
+  asks X" given the primitive's shape menu and the cast's
+  business briefs is **"the two characters at the counter
+  discuss how to handle this customer's ask."**
+
+This is **not** best explained by "the model did it." The
+model is faithfully composing across the following prompt
+constraints:
+
+* task: "here is the topic" (verbatim, no shaping hint)
+* shape: "this is a conversation" (§4)
+* cast business shape: "helps customers choose" (§1)
+* narrative menu: 8 talk shapes, no event-arrival shape (§4)
+
+Given that composition, "characters at the counter
+discussing the ask" is the natural output. The failure is a
+**topic ↔ primitive impedance mismatch** — the topic
+described an event, the primitive is a conversation format,
+and no prompt layer bridges the two by putting the customer
+on stage or dramatizing the ask arriving.
+
+### N5.3 Confidence: HIGH that this is systemic-conditional
+
+The failure is not ordinary variance. It is:
+
+* **Systemic** when a topic supplies an off-stage actor + a
+  request/ask/event without an on-stage character verb, AND
+* **Conditional** on the operator topic grammar — the same
+  primitive produced a strong scene when the topic supplied
+  an on-stage character verb (`772e9012`).
+
+A topic like "Ruby handles a difficult customer asking for a
+competition cake, only for Tyson to disagree about how
+neighborhood-branded to make it" would very likely produce
+an event-shaped scene from the same primitive. This is a
+falsifiable prediction (see §N9 candidate probes).
+
+## §N6 Q281.3-B — Does retrieved memory create pressure for explicit use?
+
+**Answer:** yes, subtly. Two mechanisms, in order of
+strength.
+
+### N6.1 Supply-side pressure (dominant)
+
+`retrieve_universe_memory` runs with `top_k=1` per
+`dialogue_synthesis.py:1586`. If ONE memory row is returned,
+the whole `NARRATIVE MEMORY` block appears in the prompt. If
+zero rows are returned, the block is omitted entirely
+(§`_build_factual_basis_section` line 603 gate: `if
+memory_rows:`).
+
+**Semantic implication for the LLM.** Once the block appears,
+the LLM correctly infers that this specific memory was
+selected as topically relevant to the current scene. The
+retrieval predicate uses the operator topic as the query
+vector (line 1586: `retrieve_universe_memory(workspace,
+canon_universe, cast, topic, top_k=1)`). Semantic overlap
+between the topic ("celebration cake for an event tied to
+the neighborhood baking competition") and the mascot memory
+("welcoming mascot for the neighborhood") is real — both
+share the "neighborhood" anchor. So the memory is
+legitimately topical.
+
+From the LLM's perspective the composition is:
+* "Here is the scene topic."
+* "Here is a memory that was selected as relevant to this
+  scene."
+* "Use them as historical context or callback material
+  where natural."
+
+That structural composition creates supply-side pressure:
+**the memory's mere presence in the prompt says 'this is
+relevant to this scene.'** In the failing specimen the model
+did the natural thing — worked the mascot into the
+dialogue.
+
+### N6.2 Wording pressure (secondary, mild)
+
+`_build_factual_basis_section` lines 620-623:
+
+> "These are operator-promoted story memories. **Use them as
+> historical context or callback material where natural.**
+> Do not recite them verbatim; treat them as background the
+> cast already knows happened."
+
+Comparison with the canon SHARED WORLD KNOWLEDGE block
+header on line 593:
+
+> "--- SHARED WORLD KNOWLEDGE (any character may cite) ---"
+
+Canon is framed permissively (**may** cite). Memory is
+framed with an imperative verb (**Use them**) softened by a
+condition (**where natural**). The permissive escape hatch
+exists, but the default reading is directive.
+
+This is a mild asymmetry vs canon and could plausibly
+combine with the supply-side pressure above.
+
+### N6.3 Was the mascot callback natural or mechanically encouraged?
+
+**Best-supported answer: mechanically encouraged.** Three
+independent observations:
+
+1. **Topic-driven retrieval seeding.** The retrieval query
+   was the topic itself. The memory that came back was
+   selected specifically because it overlapped the topic.
+   Once selected, its presence signals relevance to the
+   model.
+2. **Turn placement is symptomatic.** The mascot callback
+   lands at turns 6-7 out of 10 — after the operational
+   discussion has run out of primary material. It reads
+   like fitting the memory in rather than the memory
+   driving the arc. Compare `772e9012` where the mascot
+   idea IS the second beat of the scene (Ruby proposes
+   routine → Tyson raises mascot complication → resolution),
+   originating naturally from the topic itself and driving
+   the arc.
+3. **Ruby's line preserves the memory verbatim in
+   spirit.** "I still think the neighborhood deserves a
+   welcoming little face" is a near-paraphrase of the
+   remembered body ("Ruby still wants Fox & Flour to have a
+   welcoming mascot for the neighborhood"). The framing
+   instruction "Do not recite them verbatim; treat them as
+   background the cast already knows happened" was
+   partially honored — Ruby doesn't quote the memory — but
+   the wording maps 1:1.
+
+Ruling out alternatives:
+* **Ranking?** Not the cause — the memory is the ONLY
+  eligible active + embedded row in Fox & Flour that
+  overlaps the topic; `top_k=1` returned exactly what it
+  was designed to return.
+* **Verifier / coverage pressure?** Not the cause — K6.4
+  verifier scores factual claims against allowed
+  vocabulary. The mascot line "welcoming little face" isn't
+  a factual claim about a K2 chunk. `verification_status =
+  verified` with 0 warnings; the verifier neither required
+  nor rewarded the callback.
+* **Model creativity variance?** Only partially. The model
+  has to place the memory somewhere if it's in the prompt;
+  the placement was reasonable but the necessity was
+  supplied by the prompt, not by the scene's structural
+  need.
+
+## §N7 Q281.3-C — Curator quality vs source story quality
+
+**Answer:** curator is faithfully abstracting a weak source.
+There is no evidence of an independent curator failure.
+
+The three suggestions Chris rejected map 1:1 to the actual
+dialogue material:
+
+| Curator suggestion (verbatim)                                                        | Source dialogue turns                        |
+|--------------------------------------------------------------------------------------|----------------------------------------------|
+| "…celebration-cake orders tied to the neighborhood baking competition should celebrate the gathering rather than resemble a competition entry…" | Turns 4-5 (Tyson: "may want it connected to the neighborhood without making it look like an entry" / Ruby: "The cake can celebrate the gathering. It does not have to compete") |
+| "…decided to ask competition-event cake customers what they are celebrating, who the cake is for, when pickup is needed…" | Turn 1 + turn 8 wrap-up ("We'll ask about the event, the pickup timing, and whether they want a neighborhood nod or something simpler.") |
+| "Ruby will only propose the bakery mascot on a custom cake if the customer wants it and the design still feels like the customer's celebration first." | Turn 7 (Ruby: "But only if the customer likes the idea; it should feel like their celebration first.") |
+
+Every suggestion is a durable-shaped abstraction of material
+that is actually in the dialogue. The curator's job is to
+notice "what from this story should matter later"; the
+material available to notice was procedural (customer-
+service framework decisions). The curator noticed exactly
+that.
+
+**If Chris promoted a curator card here, procedural canon
+would accumulate.** He didn't — the human-in-the-loop
+boundary worked as designed. The scope-locked persistence
+policy from Slice 281.2 (body + `witnessed_by: []`; no
+persistence unless the operator clicks `[Remember this]`)
+absorbed the failure at the operator layer.
+
+**Recommendation:** do NOT modify curator prompting in
+response to this dogfood evidence. The curator behaved
+correctly against the source material it was given.
+
+## §N8 Product-distinction interpretation grid (verified)
+
+| #   | Question                                                                        | Verdict for `565cd8c8`                          |
+|-----|---------------------------------------------------------------------------------|-------------------------------------------------|
+| 1   | STORY-DIRECTION QUALITY — "Is this an interesting premise?"                     | **acceptable-to-good** (Chris picked it verbatim from v1 suggestions; the premise is interesting-sounding on its face) |
+| 2   | STORY EXECUTION QUALITY — "Did something actually happen?"                      | **failed** — procedural discussion, no on-stage event |
+| 3   | MEMORY RETRIEVAL QUALITY — "Was relevant story history available?"              | **mechanically succeeded** — retrieval returned the topically-closest memory (top_k=1) as designed |
+| 4   | MEMORY USE QUALITY — "Was retrieval used naturally rather than obligatorily?"   | **used mechanically** — supply-side pressure (see §N6) placed the mascot at turn 6/7 in a way that reads inserted, not necessary |
+| 5   | CURATOR QUALITY — "Did the curator notice reusable details?"                    | **succeeded relative to source** — three faithful abstractions of the procedural dialogue |
+| 6   | OPERATOR CURATION — "Does the human want those details to be durable?"          | **succeeded** — Chris rejected all three, preventing procedural canon accumulation |
+
+Chris's prior interpretation is validated. The failure is
+concentrated at #2 (story execution). #4 is a real but
+secondary concern. #1, #3, #5, #6 either succeeded or
+succeeded conditionally.
+
+## §N9 What is PROVEN vs still ASSUMED
+
+**Proven** by this pass:
+
+* Same knowledge substrate + same primitive + same cast + same
+  target duration produced radically different narrative
+  outcomes for two topic strings that differ only in grammar
+  (§N4 table).
+* The task section is a passive topic carrier; it adds no
+  event-dramatization framing (§N5.1.2).
+* The `dialogue_scene` narrative-shapes menu contains only
+  talk shapes; no event-arrival-and-consequence shape exists
+  (§N5.1.3, `writing_contract.py:593-604`).
+* Both cast members' `business_brief` fields describe them
+  as customer-service explainers (§N5.1.5) which is
+  reinforcing for a customer-request topic.
+* Retrieval used the operator topic verbatim as the memory
+  query with `top_k=1` (§N6.1). The mascot memory was
+  legitimately topical (shared "neighborhood" anchor).
+* The narrative-memory block header uses an imperative "Use
+  them" verb softened by "where natural"; this is
+  asymmetric vs canon SHARED WORLD KNOWLEDGE's permissive
+  "any character may cite" (§N6.2).
+* The corrective pass explicitly preserves conversational
+  beats and causal chain (§N3, `corrective_hint` text) —
+  the failure was baked in at attempt-1 and not corrected.
+* Curator suggestions map 1:1 to actual dialogue turns
+  (§N7 table); no evidence of independent curator failure.
+* Both SESSION 280 Fox & Flour memories from §4.2 remain
+  unmodified. The mascot memory `73acdfc0` (promoted in
+  step 2 of the dogfood) is still `status=remembered`,
+  unarchived, whole-cast witnesses.
+
+**Assumed / not yet falsified:**
+
+* That a topic supplying an on-stage character verb +
+  complication (e.g. "Ruby handles X, only for Y") would
+  reliably lift `565cd8c8`-shape topics into strong
+  execution against the same primitive. Only one comparison
+  pair (`772e9012` strong ↔ `565cd8c8` weak). Confidence is
+  HIGH from the mechanism-level reasoning but not
+  experimentally proven beyond n=2.
+* That the supply-side memory-presence pressure (§N6.1) is
+  the dominant channel for §N6.3's "mechanically
+  encouraged" verdict, vs the imperative wording (§N6.2).
+  Not experimentally separated — both are present in every
+  memory-fed dialogue today.
+* Whether the same failure shape would appear against Patch
+  / Rivet Universes with equally off-stage-actor topics.
+  Not tested. Patch's Workshop has a stronger continuity
+  corpus (14 memories) which might create different
+  pressure than Fox & Flour's 3 (now 4) memories.
+
+## §N10 Candidate next-slice experiments (fix-shaped
+hypotheses only)
+
+**Do NOT authorize any of these here.** They are
+falsifiable-question candidates for Chris + ChatGPT to
+scope-lock separately if they want to close the gap the
+dogfood exposed. Cost estimates assume Q280.9-comparable
+provider cost of ~$0.02 per call.
+
+### N10.a Q281.3-α — Topic-grammar variance probe
+
+Falsifiable question: does an on-stage-character-verb
+rewrite of `565cd8c8`'s topic produce a fundamentally
+different scene shape from the same primitive?
+
+Probe design: fire two additional dialogue_scene syntheses
+against Fox & Flour with identical everything except topic:
+
+* Topic A (control, verbatim):
+  > "A customer asks Fox & Flour to create a celebration
+  > cake for an event tied to the neighborhood baking
+  > competition."
+* Topic B (treatment — on-stage verb + complication):
+  > "Ruby takes a call for a custom celebration cake tied
+  > to the neighborhood baking competition, only for Tyson
+  > to raise a mascot complication."
+
+Compare attempt-1 dialogue shape:
+* Does topic B put an on-stage event in the scene?
+* Does topic B produce fewer procedural / customer-service
+  frame turns?
+* Does topic B naturally motivate the mascot callback vs
+  supply it externally?
+
+Cost: 2 provider calls, ~$0.04 total.
+
+Non-goals: DO NOT modify synthesis prompts, primitive
+selection, or any production surface as a result of this
+probe until Chris + ChatGPT explicitly authorize a shape-
+correction slice.
+
+### N10.b Q281.3-β — Memory-presence pressure probe
+
+Falsifiable question: does the mere presence of a topically-
+adjacent memory in the prompt produce a callback the LLM
+would not otherwise write?
+
+Probe design: fire the SAME topic (either A or B from
+Q281.3-α, or the current `565cd8c8` topic verbatim) TWICE:
+
+* Attempt 1: with `retrieve_universe_memory(top_k=1)` result
+  intact (mascot memory included).
+* Attempt 2: with `memory_rows=[]` forced (a one-line probe-
+  local override; NO production code change).
+
+Compare: does attempt-2 organically produce a
+neighborhood-mascot callback? If yes → callback was topic-
+driven; memory presence was corroborating. If no → memory
+presence was causal.
+
+Cost: 2 provider calls, ~$0.04 total.
+
+Non-goals: DO NOT modify retrieval semantics, memory
+framing wording, or `top_k` in production based on this
+probe alone.
+
+### N10.c Q281.3-γ — Memory-framing wording probe
+
+Falsifiable question: does swapping the imperative "Use
+them" for a permissive "May be cited when narratively
+useful" change LLM callback behavior at fixed memory-set +
+fixed topic?
+
+Probe design: run one paired experiment on the current
+`565cd8c8` topic (memory intact) with the memory-block
+header text swapped, prompt-locally, to match the canon
+block's permissive framing.
+
+Cost: 2 provider calls (control + treatment), ~$0.04 total.
+
+Non-goals: DO NOT modify `_build_factual_basis_section` in
+production based on this probe. The wording change is a
+one-line prompt lever; the audit doc records the finding
+regardless.
+
+### N10.d Q281.3-δ — Primitive-selection surface
+
+Fix-shaped hypothesis (not a probe — a product observation):
+today the operator has no primitive-selection surface
+between "pick a v1 story-direction suggestion" and "run the
+dialogue_scene starter." Every attached-Episode composition
+uses `template_kind = "dialogue_scene"`. If some topics are
+better served by a shape that dramatizes an on-stage event,
+`dialogue_scene` may not be the right primitive for every
+Episode.
+
+The v1 recipe registry already contains other primitives
+(`talking_head`, `long_form_ad`, etc.); none currently
+carry an "event-happens-on-stage" shape either. Slice
+281.3+ product question: is the right response a new
+primitive, a shape hint on the existing primitive, or a
+richer story-direction surface that suggests both topic
+and shape? Chris + ChatGPT to decide out-of-scope from this
+audit.
+
+## §N11 Explicit non-goals for this audit
+
+Per Slice 281.3 authorization — did NOT do any of the
+following in this pass:
+
+* modify synthesis prompts (dialogue / conversation /
+  script)
+* modify `_build_factual_basis_section` narrative-memory
+  header wording
+* modify `_dialogue_scene_contract` narrative shapes menu
+* modify `_build_task_section` topic emission
+* modify `retrieve_universe_memory` top_k, filter, or query
+  seed
+* modify curator service or prompt
+* modify Ruby / Tyson / Patch / Rivet Teammate fields
+* modify `NarrativeMemory` schema / kinds / weights /
+  witness semantics
+* modify verifier / K6.4 / D-POS behavior
+* add UI
+* add visual storytelling
+* regenerate `565cd8c8` as a "fix"
+* promote any curator suggestion from `565cd8c8`
+* archive, edit, or supersede the mascot memory
+  `73acdfc0`
+* fire any real provider calls beyond the read-only
+  substrate inspection (no probe was executed in this
+  pass — probes are proposals for Chris + ChatGPT
+  authorization, see §N10)
+
+## §N12 Slice 281.3 landing SHAs
+
+```
+Slice 281.3 primary landing SHA:  <filled in on next commit>
+Slice 281.3 SHA-trailer commit:   <filled in on next commit>
+```
+
+## §N13 Slice 281.3 decision gate
+
+**Awaiting Chris + ChatGPT review.** The audit answers
+Q281.3-A / B / C with the interpretation grid in §N8 and
+proposes three narrow probes (Q281.3-α / β / γ) at ~$0.04
+each. Chris + ChatGPT to decide:
+
+1. Whether to authorize any of the §N10 probes.
+2. Whether to open a shape-correction slice (topic-grammar
+   contract, primitive-selection surface, or memory-
+   framing wording swap).
+3. Whether to close SESSION 281 here — Slice 281.2 shipped
+   an operator-facing curator surface that behaved
+   correctly under this dogfood (the human-in-the-loop
+   boundary worked; procedural canon did not accumulate).
+
+The finding is a genuine product signal that story-
+execution quality is a distinct dimension from every SPA
+surface Slice 281.1 / 281.2 delivered. Whether that
+signal warrants next-session scope is a Chris + ChatGPT
+decision.
+
+**Do NOT implement anything until Chris + ChatGPT review
+the findings.**
