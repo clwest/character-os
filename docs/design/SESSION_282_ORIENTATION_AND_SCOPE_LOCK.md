@@ -3087,8 +3087,10 @@ to Chris + ChatGPT final green-light.**
 
 ## §24.12 Slice 282.2 correction landing SHA
 
-* §24 zero-spend protocol correction: **this commit's
-  SHA** (appended in trailer).
+* §24 zero-spend protocol correction: **`5508b87`** —
+  `docs(session-282): Slice 282.2 zero-spend protocol
+  correction (C1 + C2)`
+* Trailer (this commit) records the landing SHA above.
 * No new experiment data. No new provider spend.
 * T0 raw artifact unchanged.
 * Every substrate row (F&F 12 Ep / 3 mem, PW 32 Ep / 14
