@@ -2222,8 +2222,11 @@ and pre-observation.
 ## §20.14 Slice 282.2 baseline landing SHAs
 
 * Baseline execution + classification + interpretation:
-  **this commit's SHA** (appended in trailer).
-* Raw artifact: `docs/design/session282_experiment_data/q282_2_v1_baseline.json`
+  **`2aaed25`** — `feat(session-282): Slice 282.2 v1
+  baseline EXECUTED — 12 Ep / 3 mem F&F`
+* Trailer (this commit) records the landing SHA above.
+* Raw artifact:
+  `docs/design/session282_experiment_data/q282_2_v1_baseline.json`
 
 ---
 
