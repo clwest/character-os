@@ -2277,8 +2277,8 @@ following in this pass:
 ## §N12 Slice 281.3 landing SHAs
 
 ```
-Slice 281.3 primary landing SHA:  <filled in on next commit>
-Slice 281.3 SHA-trailer commit:   <filled in on next commit>
+Slice 281.3 primary landing SHA:  370debd
+Slice 281.3 SHA-trailer commit:   <appended in the same commit as this update>
 ```
 
 ## §N13 Slice 281.3 decision gate
