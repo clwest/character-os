@@ -3348,8 +3348,10 @@ In landing order:
 9. `ea6349a` — Slice 282.2 recalibration trailer
 10. `5508b87` — Slice 282.2 §24 correction (C1 + C2)
 11. `d0d2b1f` — Slice 282.2 correction trailer
-12. `<this commit>` — §25 fix + §26 closeout (SHA
-    recorded in trailer)
+12. `daf9fa9` — §25 fix + §26 closeout + SESSION_283
+    handoff created
+13. `<trailer>` — this commit records the closeout SHA
+    above
 
 Handoff document created: `docs/design/SESSION_283_HANDOFF.md`.
 
