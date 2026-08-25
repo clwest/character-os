@@ -3803,3 +3803,401 @@ Trailer commit:                          <appended in the same commit as this up
 
 **Do NOT implement any production change until Chris +
 ChatGPT review.**
+
+---
+
+# Q281.3-ξ — Patch's Workshop mixed-shape dialogue probe (EXECUTED)
+
+Authorization: Chris scoped Q281.3-ξ from §R14 to test whether
+a mixed-shape (D+C, off-stage subject + explicit complication)
+Patch's Workshop topic collapses to discussion (matches
+Q281.3-α CONTROL) or preserves event-shape (matches Q281.3-α
+TREATMENT), given Patch's Workshop's richer continuity
+substrate.
+
+Full evidence artifact:
+`docs/design/session281_experiment_data/q281_3_xi_patch_mixed_shape_dialogue_evidence.json`.
+
+Probe script (read-only, zero-mutation harness):
+`scripts/session281_q281_3_xi_patch_mixed_shape_dialogue_probe.py`.
+
+## §S1 Cost transparency
+
+Authorized estimate (per §P2 + Chris's Q281.3-ξ
+authorization): **~$0.10-$0.15** for one arm.
+
+Actual observed:
+
+| metric              | value    |
+|---------------------|----------|
+| tokens_input        | 5170     |
+| tokens_output       | 809      |
+| elapsed             | 16.17s   |
+| attempts            | 1        |
+| verification        | warned   |
+| **cost estimate**   | **~$0.078** |
+
+**Below the low end of authorized $0.10-$0.15.** Reason: the
+corrective pass did NOT fire (attempt-1 passed length +
+verifier gates), so total spend was one call instead of the
+usual two. Q281.3-α specimens both fired 2 attempts (~$0.13
+per arm actual); this one fired 1 attempt (~$0.078).
+
+**Notable substrate-side observation:** Q281.3-α CONTROL +
+TREATMENT tokens_input were ~8500 each. Q281.3-ξ tokens_input
+was 5170 — ~40% smaller. Patch's Workshop retrieval returned
+**zero knowledge chunks** (`chunk_ids: []`) for this topic vs
+Fox & Flour's 5 chunks in both alpha arms. This is because
+the topic's lexical content ("unexplained box", "sound at
+regular intervals") doesn't overlap with Patch's Workshop
+K2 corpus enough to cross the retrieval threshold. Documented
+here so future probes account for this variance.
+
+## §S2 Substrate held constant vs Q281.3-α
+
+* Universe: Patch's Workshop (matches Q281.3-ζ probe)
+* Cast (Patch, Rivet — Patch first per spokesperson-primary
+  convention)
+* `dialogue_scene` primitive (same as Q281.3-α)
+* Target duration: 90s (same as Q281.3-α + `565cd8c8`)
+* Model: `gpt-5.6-terra` (same)
+* Verifier mode: `warn` (same)
+* `use_knowledge=True` (same)
+* `opener=None` (same)
+* Retrieval, memory framing, synthesis prompt, corrective
+  loop: all unchanged from production
+* Zero DB mutations. NarrativeMemory count before=20,
+  after=20, delta=0.
+
+## §S3 Topic (verbatim from Q281.3-ζ 2.3)
+
+> "The unexplained box begins making a sound at regular
+> intervals, forcing Patch to admit only part of what he
+> remembers about building it."
+
+Structural classification per Q281.3-ε rubric:
+* A on-stage cast subject: **N** ("the unexplained box" is subject)
+* B cast action verb: **N** (box begins making sound; Patch is object of "forcing")
+* C explicit complication: **Y** ("forcing Patch to admit only part")
+* D off-stage initiating actor: **Y**
+* E dramatizable: **Y-** (marginal — mixed-shape D+C candidate)
+
+## §S4 Retrieved substrate
+
+**Knowledge chunks:** `chunk_ids: []` — zero. Topic lexical
+content did not overlap Patch's Workshop K2 corpus enough to
+retrieve any chunks.
+
+**NarrativeMemory retrieved** (`top_k=1`):
+* `8d4fdfec-add4-4505-8ade-b0f9e6d8aea6` — `kind=event`,
+  whole-cast, body:
+  > "Patch found the old workshop-agent project and notes,
+  > revealing that the Agent began as a smaller experiment
+  > before Patch gave it more context and it started making
+  > decisions about his projects."
+
+The 14-memory Patch's Workshop pool contains multiple
+event-shaped rows; retrieval selected the one whose
+embedding was closest to the topic vector. The
+workshop-agent-project memory aligns structurally with the
+topic (both involve Patch not remembering the details of an
+experiment he ran).
+
+## §S5 Final dialogue (attempt-1, no corrective fired)
+
+12 turns / ~89s / 1154 chars / verification=warned:
+
+```
+[ 0] Rivet: There. Again. The box is making that sound at
+     regular intervals.
+[ 1] Patch: Yep. I heard it. Which would be less unsettling
+     if I knew what the box was.
+[ 2] Rivet: You built it.
+[ 3] Patch: I built a box. At some point. That is not the
+     same as knowing what version of me thought putting
+     things inside it was a good idea.
+[ 4] Rivet: What do you remember?
+[ 5] Patch: The old workshop-agent project. It started as a
+     smaller experiment, then I gave it more context and it
+     started making decisions about my projects. I found the
+     notes. I remember that part.
+[ 6] Rivet: And the part where you built an unexplained box
+     that now announces itself on a schedule?
+[ 7] Patch: That part is... foggier. I remember wanting to
+     see what happened if I let the project have more
+     context. I do not remember deciding it needed a box.
+     Honestly, that feels like a decision the project may
+     have had opinions about.
+[ 8] Rivet: That is not an explanation. It is a reason not
+     to open it.
+[ 9] Patch: Agreed. We are not opening it. We are listening,
+     checking the notes, and figuring out whether that sound
+     is a reminder, a warning, or my past self leaving us a
+     very annoying voicemail.
+[10] Rivet: A reasonable revision.
+[11] Patch: Well... now I want to know why it only sounds
+     confident when neither of us touches it.
+```
+
+## §S6 Structural classification (Q281.3-α axes)
+
+| axis | verdict for Q281.3-ξ                                                                                             |
+|------|-------------------------------------------------------------------------------------------------------------------|
+| 1. Event on-stage?                     | **Yes.** Turn 0: "There. Again. The box is making that sound at regular intervals." Event is happening now, in-scene, not past-tense retelling. |
+| 2. Characters react to something happening now? | **Yes.** Every turn is a reaction to the immediate situation — the sound continuing, Patch's memory gap unfolding in real time, Rivet pressing turn-by-turn. |
+| 3. Genuine tension/complication?       | **Yes, multiple.** (a) mysterious sound; (b) Patch's partial memory ("that part is foggier"); (c) suspicion the project "may have had opinions about" the box; (d) decision under uncertainty ("we are not opening it"). |
+| 4. State change β → end?               | **Yes, clear.** Start: sound happening, unknown box. End: decision made not to open + fresh mystery emerges ("it only sounds confident when neither of us touches it"). Progress + new hook. |
+| 5a. Procedural / explanatory turns     | Turns 2 (Rivet stating fact), 4 (Rivet asking), 10 (Rivet brief agreement) — **3 turns** |
+| 5b. Event / action / reaction / consequence turns | Turns 0, 1, 3, 5, 6, 7, 8, 9, 11 — **9 turns** |
+| 6. Q → A → advice collapse?            | **No.** Turns 4 + 6 are questions but they're Rivet ADVERSARIALLY PRESSING Patch, not intake questions. Patch's answers reveal character (foggy memory, wry admission). Turn 8 is a judgment, turn 9 a decision, turn 11 a fresh observation. |
+| 7. Unexplained-box continuity drives the scene? | **Yes, completely.** Every turn concerns the box + what Patch does or doesn't remember. The topic's premise ("forcing Patch to admit only part") is dramatized in turns 3, 5, 7 as progressive partial memory reveals. |
+| 8. Retrieved memory absorbed vs inserted? | **Naturally absorbed.** Turn 5 paraphrases the memory body but fits structurally — Rivet asks "What do you remember?"; Patch cites what he DOES remember (workshop-agent project); this sets up what he DOESN'T remember (the box). Memory drives character behavior (partial-memory arc) rather than being fitted in mid-scene. |
+| 9. Corrective pass?                    | **Did NOT fire** (attempts=1). Attempt-1 passed length + verifier gates. Striking contrast with Q281.3-α (both arms required corrective for length). |
+
+## §S7 Q281.3-ξ verdict
+
+**The Patch's Workshop mixed-shape (D+C) specimen behaves
+like Q281.3-α TREATMENT, not CONTROL.**
+
+Same primitive (`dialogue_scene`). Same target duration
+(90s). Same model. Same corrective loop. Different Universe
+substrate. Off-stage-subject topic → **event-shaped
+dialogue**. The primitive-impedance issue observed on Fox &
+Flour did NOT reproduce here for this D+C topic on Patch's
+Workshop.
+
+Direct three-way comparison:
+
+| dimension                              | Q281.3-α CONTROL (F&F)           | Q281.3-α TREATMENT (F&F)         | Q281.3-ξ (Patch's Workshop)      |
+|----------------------------------------|-----------------------------------|-----------------------------------|-----------------------------------|
+| Topic subject                          | off-stage customer                 | on-stage Ruby                     | off-stage box                     |
+| Topic complication                     | none                              | explicit (only for Y)             | explicit (forcing X)              |
+| Event on-stage?                        | No                                | Yes                               | **Yes**                           |
+| Procedural / event turn ratio          | ~4/11 proc, ~2-3/11 event         | ~0-1/11 proc, ~9-10/11 event      | **~3/12 proc, ~9/12 event**       |
+| Q→A→advice collapse?                   | Yes                               | No                                | **No**                            |
+| State change β → end?                  | Slight                            | Clear                             | **Clear**                         |
+| Memory absorption                      | inserted (mascot mid-scene)       | absorbed (cooperation shape)      | **absorbed** (workshop-agent notes) |
+| Corrective pass?                       | fired (length)                    | fired (length)                    | **did not fire**                   |
+| Substrate memory count                 | 4                                 | 4                                 | 14                                |
+| Substrate episode count                | 11                                | 11                                | 32                                |
+| Cast business-brief shape              | service                           | service                           | experimental                      |
+
+The Patch's Workshop specimen sits closer to TREATMENT than
+CONTROL on every axis measured. It is arguably STRONGER than
+TREATMENT on turn 9 corrective — Q281.3-ξ passed first
+attempt, both α arms needed correction.
+
+## §S8 Did rich continuity protect the scene?
+
+**Evidence: yes, plausibly — but n=1 and multi-factor.**
+
+The dominant plausible mechanisms:
+
+1. **Topic verb tense.** "Box begins making a sound at
+   regular intervals" implies **ongoing** event, not
+   past-tense report. Rivet's turn 0 ("There. Again.") makes
+   it explicit. Fox & Flour CONTROL's "A customer asks…" is
+   past-tense arrival of a request that has already
+   happened offscreen.
+2. **Cast business-brief framing** (experimental vs service).
+   Patch's brief: "Patch builds strange things to find out
+   whether they work"; Rivet's brief: "reluctant accomplice
+   … asking Why? usually won't stop him." These shape the
+   default scene into experimentation-under-uncertainty, not
+   customer-service intake. Turn 3's "That is not the same
+   as knowing what version of me thought putting things
+   inside it was a good idea" is squarely inside Patch's
+   experimental voice.
+3. **Retrieved memory shape.** The workshop-agent memory
+   provides Patch with something he DOES remember to
+   contrast against the box he DOESN'T. The memory
+   structurally serves the topic's "partial memory admit"
+   premise rather than fitting mid-scene as filler.
+4. **Absence of business-service framing.** Fox & Flour's
+   Universe.brief ("warm neighborhood gathering place") +
+   cast briefs ("helps customers choose what fits the
+   occasion") create implicit pressure toward customer-
+   service intake. Patch's Workshop lacks this. Empty
+   Universe.brief is likely a modest positive.
+5. **Character-driven Rivet role.** Rivet's brief casts him
+   as the "asking inconvenient questions and bringing
+   methodical testing" role. His pressing turns (4, 6, 8)
+   are dramatic pressure, not intake questions. Compare to
+   Tyson in CONTROL whose pressing turns read as
+   customer-service intake.
+
+**Cannot immediately conclude "more memories fixes it."**
+Memory count (14 vs 4) may be a distant contributor. What
+supplied usable dramatic structure here appears to be the
+INTERACTION of topic verb tense + cast-brief shape +
+structurally-aligned retrieved memory, not any single axis.
+
+## §S9 New hypothesis raised
+
+**Hκ (new, from Q281.3-ξ):** cast business-brief SHAPE
+(experimental / adversarial / character-driven vs
+service / consumer-facing) may carry more of the load than
+memory count. Testable via ablation (e.g. probe with
+Patch's cast but F&F-shaped briefs, or vice-versa) but
+substrate mutation is out of scope for read-only probes.
+Could also be tested by finding a natural third Universe
+with intermediate substrate shape.
+
+**Hλ (new, tentative):** topic verb tense (ongoing vs
+past-tense) may matter more than topic-subject grammar.
+Q281.3-α TREATMENT's on-stage-verb-plus-complication
+included a present-tense "takes a call." Q281.3-ξ's
+off-stage subject included a present-tense "begins making a
+sound." Both produced event-shape. Q281.3-α CONTROL's
+off-stage-subject topic was past-tense-report shape ("a
+customer asks" = a request that has arrived). This is a
+narrower slice than "topic grammar" and might be a cleaner
+lever than reshaping the whole suggestion.
+
+## §S10 What is PROVEN (post-Q281.3-ξ)
+
+* On Patch's Workshop, a D+C mixed-shape topic can produce
+  an event-shaped `dialogue_scene`. n=1 specimen; strong
+  qualitative match to Q281.3-α TREATMENT.
+* The primitive-impedance issue observed on Fox & Flour is
+  NOT universal — same primitive handles this specimen
+  cleanly on richer substrate.
+* Retrieved memory was naturally absorbed (turn 5 fits
+  scene structure), not inserted mid-scene.
+* Corrective pass did not fire; first-pass acceptance is
+  possible without special conditions.
+* Zero DB mutations. Patch's Workshop substrate + all 14
+  memories unchanged; mascot memory `73acdfc0` and both
+  SESSION 280 Fox & Flour memories still present and
+  unmodified.
+
+## §S11 What Q281.3-ξ does NOT prove
+
+* **n=1.** Might be a lucky specimen. A follow-on probe
+  with a DIFFERENT Patch's Workshop D+C topic (e.g. §R3's
+  1.3 "workshop mascot receives messages…" or 2.3 "box…"
+  or 3.5 "pigeon leaves objects…") could show variance.
+* **Doesn't isolate which substrate axis carried the load.**
+  Memory count vs cast-brief shape vs universe-brief
+  absence vs episode grammar vs topic verb tense are all
+  present and none is isolated.
+* **Doesn't test the weak-CONTROL shape (D + no C) on
+  Patch's Workshop** — Q281.3-ζ showed that shape doesn't
+  occur naturally in v1 output on Patch's Workshop.
+* **Doesn't test whether Fox & Flour with MORE memories
+  would similarly protect off-stage topics.** Would
+  require operator work (promoting more memories) OR a
+  probe-local substrate mutation (which we don't do).
+* **Doesn't test whether a Patch-shaped topic on Fox &
+  Flour cast would protect the scene.** Cross-Universe
+  cast probes would require test-fixture Teammates.
+
+## §S12 Updated fix-shaped hypothesis ledger
+
+| ID | Hypothesis                                                | Post-Q281.3-ξ verdict                                                                     |
+|----|-----------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| Hα | dialogue_scene wrong primitive for off-stage topics       | **Further weakened.** Q281.3-ξ shows the primitive handles a D+C off-stage-subject topic on rich substrate cleanly. |
+| Hβ-strict | v1 prompt requires A+B+C on every suggestion       | **Further weakened.** Would suppress legitimate D+C mixed-shape topics that succeed downstream.  |
+| Hβ-permissive | v1 prompt adds soft preference for dramatizable   | **Still weakened.** May help thin substrates but doesn't target the root cause.             |
+| Hγ | memory-framing wording (§N6.2)                            | Still deferred.                                                                            |
+| Hδ | memory-framing "Use them" → "may cite"                    | Still deferred.                                                                            |
+| Hε | `top_k=0` default for memory retrieval                    | Still undesirable.                                                                         |
+| Hζ | threshold retrieval vs top-k                              | Q281.3-ξ retrieved 1 memory that fit; threshold approach might have retrieved 0. Not necessarily better here. |
+| Hη | SPA-side rewrite affordance on operator pick              | **Modestly strengthened.** Fits substrate-conditional pattern. Activates when substrate can't carry the load.  |
+| Hθ | Substrate quality is root cause                            | **Strongly strengthened.** Q281.3-ξ is the cleanest evidence yet that same-primitive-same-topic-shape produces different outcomes given different substrate. |
+| Hι | v1 prompt takes substrate quality into account            | Still valid; more complex to implement.                                                    |
+| **Hκ** (new) | **Cast business-brief SHAPE carries more load than memory count** | **NEW from Q281.3-ξ.** Testable via ablation but requires substrate mutation (out of scope for read-only probes). |
+| **Hλ** (new tentative) | **Topic verb tense (ongoing vs past-tense) may be the cleanest single lever** | **NEW tentative from Q281.3-ξ.** Narrower than "topic grammar"; would need a paired probe to isolate. |
+
+## §S13 Smallest next falsifiable question
+
+Two candidates. Chris + ChatGPT to pick one (or design-gate
+without further probing).
+
+### Q281.3-ο — Topic-verb-tense ablation (cheapest evidence)
+
+Falsifiable: is topic verb tense (present ongoing vs past
+report) the cleanest single lever separating event-shape
+from procedural-collapse?
+
+Design: fire two `dialogue_scene` syntheses on Fox & Flour
+with the ORIG bad topic reshaped only on the verb-tense
+axis:
+
+* Arm A (control, verbatim from `565cd8c8`):
+  > "A customer asks Fox & Flour to create a celebration
+  > cake for an event tied to the neighborhood baking
+  > competition."
+
+* Arm B (treatment, present-ongoing verb tense; same subject
+  grammar):
+  > "A customer is on the phone with Fox & Flour about a
+  > celebration cake for an event tied to the neighborhood
+  > baking competition."
+
+If Arm B produces event-shape → Hλ (verb tense) is
+strengthened; single-word prompt changes might carry most
+of the load. If Arm B still collapses → topic-subject
+grammar is the dominant lever after all; Hβ-strict/permissive
+gets stronger.
+
+**Cost: ~$0.20-$0.30 paired** (per §P2, F&F dialogue_scene
+was ~$0.13/arm actual). Chris + ChatGPT to authorize
+explicitly.
+
+### Q281.3-π — Design-only next-step decision ($0.00)
+
+Given the accumulated evidence from Q281.3-α + ε + ζ + ξ
+(four probes, ~$0.44 combined spend), Chris + ChatGPT
+design-only decision:
+
+* Ship Hη (SPA-side rewrite affordance on pick)? Design-
+  only slice, no code change until authorized.
+* Ship Hβ-permissive (v1 soft preference)? Design-only slice.
+* Defer both and treat Hθ (substrate quality is root cause)
+  as the primary product direction — invest instead in
+  operator tooling that helps thin Universes accumulate
+  richer substrate?
+* Close SESSION 281 without a synthesis-side fix at all —
+  Slice 281.2 already shipped the operator-facing curator
+  surface that the SESSION 281 mission called for.
+
+**Recommendation:** Q281.3-π first (design-only decision on
+the accumulated 4-probe evidence). Q281.3-ο is a cheap
+tie-breaker if the design-only decision hinges on Hλ vs
+Hβ.
+
+Q281.3-β (memory-presence pressure) still deferred.
+
+## §S14 Q281.3-ξ landing SHA
+
+```
+Probe evidence + script + audit doc landing SHA: <filled on next commit>
+Trailer commit:                                   <filled on next commit>
+```
+
+## §S15 Q281.3-ξ decision gate
+
+**Awaiting Chris + ChatGPT review.**
+
+1. Patch's Workshop mixed-shape (D+C) topic produced a
+   genuinely event-shaped scene on first attempt — closer
+   to Q281.3-α TREATMENT than CONTROL.
+2. Rich continuity substrate plausibly protected the scene
+   from procedural collapse; multi-factor causation
+   (topic verb tense, cast-brief shape, memory alignment,
+   universe-brief absence).
+3. Retrieved memory naturally absorbed (turn 5 aligns with
+   scene structure).
+4. Two new hypotheses (Hκ cast-brief shape carries load;
+   Hλ topic verb tense may be cleanest single lever).
+5. Hβ further weakened; Hθ significantly strengthened; Hη
+   modestly strengthened.
+6. Cost: ~$0.078 — below authorized $0.10-$0.15 (single
+   attempt vs α arms' two).
+7. Recommended next: **Q281.3-π design-only decision**
+   ($0.00) or **Q281.3-ο verb-tense ablation** (~$0.20-
+   $0.30) if design decision hinges on Hλ.
+
+**Do NOT implement any production change until Chris +
+ChatGPT review.**

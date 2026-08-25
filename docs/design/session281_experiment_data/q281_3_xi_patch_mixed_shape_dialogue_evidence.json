@@ -1,0 +1,155 @@
+{
+  "probe": "Q281.3-\u03be",
+  "started_utc": "2026-08-25T02:00:26.673666+00:00",
+  "finished_utc": "2026-08-25T02:00:42.844792+00:00",
+  "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "universe_name": "Patch' Workshop",
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "cast": [
+    {
+      "id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+      "name": "Patch"
+    },
+    {
+      "id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+      "name": "Rivet"
+    }
+  ],
+  "topic": "The unexplained box begins making a sound at regular intervals, forcing Patch to admit only part of what he remembers about building it.",
+  "target_duration_seconds": 90,
+  "result": {
+    "elapsed_seconds": 16.171,
+    "model": "gpt-5.6-terra",
+    "tokens_input": 5170,
+    "tokens_output": 809,
+    "target_duration_seconds": 90,
+    "predicted_seconds": 88.77,
+    "total_chars": 1154,
+    "attempt_count": 1,
+    "used_knowledge": true,
+    "overall_verification_status": "warned",
+    "chunk_ids": [],
+    "memory_ids": [
+      "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"
+    ],
+    "aliases": {
+      "patch": "Patch",
+      "rivet": "Rivet"
+    },
+    "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"rivet\",\"text\":\"There. Again. The box is making that sound at regular intervals.\"},{\"line_index\":1,\"speaker_alias\":\"patch\",\"text\":\"Yep. I heard it. Which would be less unsettling if I knew what the box was.\"},{\"line_index\":2,\"speaker_alias\":\"rivet\",\"text\":\"You built it.\"},{\"line_index\":3,\"speaker_alias\":\"patch\",\"text\":\"I built a box. At some point. That is not the same as knowing what version of me thought putting things inside it was a good idea.\"},{\"line_index\":4,\"speaker_alias\":\"rivet\",\"text\":\"What do you remember?\"},{\"line_index\":5,\"speaker_alias\":\"patch\",\"text\":\"The old workshop-agent project. It started as a smaller experiment, then I gave it more context and it started making decisions about my projects. I found the notes. I remember that part.\"},{\"line_index\":6,\"speaker_alias\":\"rivet\",\"text\":\"And the part where you built an unexplained box that now announces itself on a schedule?\"},{\"line_index\":7,\"speaker_alias\":\"patch\",\"text\":\"That part is... foggier. I remember wanting to see what happened if I let the project have more context. I do not remember deciding it needed a box. Honestly, that feels like a decision the project may have had opinions about.\"},{\"line_index\":8,\"speaker_alias\":\"rivet\",\"text\":\"That is not an explanation. It is a reason not to open it.\"},{\"line_index\":9,\"speaker_alias\":\"patch\",\"text\":\"Agreed. We are not opening it. We are listening, checking the notes, and figuring out whether that sound is a reminder, a warning, or my past self leaving us a very annoying voicemail.\"},{\"line_index\":10,\"speaker_alias\":\"rivet\",\"text\":\"A reasonable revision.\"},{\"line_index\":11,\"speaker_alias\":\"patch\",\"text\":\"Well... now I want to know why it only sounds confident when neither of us touches it.\"}]}",
+    "corrective_hint": "",
+    "corrective_pass_raw": "",
+    "turns": [
+      {
+        "line_index": 0,
+        "speaker_alias": "rivet",
+        "speaker_name": "Rivet",
+        "text": "There. Again. The box is making that sound at regular intervals.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 1,
+        "speaker_alias": "patch",
+        "speaker_name": "Patch",
+        "text": "Yep. I heard it. Which would be less unsettling if I knew what the box was.",
+        "verification_status": "warned",
+        "verification_warnings_count": 1
+      },
+      {
+        "line_index": 2,
+        "speaker_alias": "rivet",
+        "speaker_name": "Rivet",
+        "text": "You built it.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 3,
+        "speaker_alias": "patch",
+        "speaker_name": "Patch",
+        "text": "I built a box. At some point. That is not the same as knowing what version of me thought putting things inside it was a good idea.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 4,
+        "speaker_alias": "rivet",
+        "speaker_name": "Rivet",
+        "text": "What do you remember?",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 5,
+        "speaker_alias": "patch",
+        "speaker_name": "Patch",
+        "text": "The old workshop-agent project. It started as a smaller experiment, then I gave it more context and it started making decisions about my projects. I found the notes. I remember that part.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 6,
+        "speaker_alias": "rivet",
+        "speaker_name": "Rivet",
+        "text": "And the part where you built an unexplained box that now announces itself on a schedule?",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 7,
+        "speaker_alias": "patch",
+        "speaker_name": "Patch",
+        "text": "That part is... foggier. I remember wanting to see what happened if I let the project have more context. I do not remember deciding it needed a box. Honestly, that feels like a decision the project may have had opinions about.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 8,
+        "speaker_alias": "rivet",
+        "speaker_name": "Rivet",
+        "text": "That is not an explanation. It is a reason not to open it.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 9,
+        "speaker_alias": "patch",
+        "speaker_name": "Patch",
+        "text": "Agreed. We are not opening it. We are listening, checking the notes, and figuring out whether that sound is a reminder, a warning, or my past self leaving us a very annoying voicemail.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 10,
+        "speaker_alias": "rivet",
+        "speaker_name": "Rivet",
+        "text": "A reasonable revision.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 11,
+        "speaker_alias": "patch",
+        "speaker_name": "Patch",
+        "text": "Well... now I want to know why it only sounds confident when neither of us touches it.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      }
+    ]
+  },
+  "resolved_memories": [
+    {
+      "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+      "resolved": true,
+      "kind": "event",
+      "status": "remembered",
+      "witnesses": [],
+      "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects."
+    }
+  ],
+  "invariants": {
+    "narrative_memory_write_delta": 0,
+    "cost_estimate_dollars_at_0_013_per_1k": 0.0777
+  }
+}
