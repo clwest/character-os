@@ -720,11 +720,10 @@ inside Slice 281.1 without changing the acceptance target.
 ## §8 Documentation SHA record
 
 This document was committed as part of the SESSION 281
-orientation pass. HEAD before commit: `00a14c3`. Commit SHA
-recording this document will be appended below once landed:
+orientation pass. HEAD before commit: `00a14c3`.
 
 ```
-SESSION_281_ORIENTATION_AND_SCOPE_LOCK.md landing SHA: <to be filled in after commit>
+SESSION_281_ORIENTATION_AND_SCOPE_LOCK.md landing SHA: ce4e490
 ```
 
 **STOP.** No Slice 281.1 implementation. Awaiting Chris +
