@@ -1823,8 +1823,10 @@ arrives.
 
 ## §18.12 Slice 282.2 landing SHAs
 
-* Protocol + baseline lock: **this commit's SHA**
-  (appended in trailer on next commit).
+* Protocol + baseline lock: **`42a1ec9`** —
+  `docs(session-282): Slice 282.2 protocol + baseline
+  lock — longitudinal organic-growth`
+* Trailer (this commit) records the landing SHA above.
 * Execution SHAs will accumulate one per checkpoint as
   Chris + ChatGPT authorize each step.
 
