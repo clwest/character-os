@@ -1,0 +1,100 @@
+{
+  "probe": "Q281.3-\u03b5",
+  "started_utc": "2026-08-25T01:39:11.086067+00:00",
+  "finished_utc": "2026-08-25T01:39:23.538801+00:00",
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "universe_name": "Fox & Flour Bakery",
+  "n_calls": 3,
+  "n_per_call": 5,
+  "calls": [
+    {
+      "call_index": 1,
+      "elapsed_seconds": 4.495,
+      "tokens_input": 788,
+      "tokens_output": 129,
+      "cache_hit": false,
+      "generated_at": "2026-08-25T01:39:15.580683+00:00",
+      "model": "gpt-5.6-terra",
+      "substrate_summary": {
+        "episodes_used": 12,
+        "memories_used": 3,
+        "cast_count": 2
+      },
+      "suggestions_verbatim": [
+        "Ruby and Tyson try out mascot ideas during a busy Saturday service, with very different ideas of what feels welcoming.",
+        "A mysterious late-night noise makes Tyson reopen his haunted-bakery theory, while Ruby suspects a much more practical culprit.",
+        "The celebration-cake client changes the competition-themed design at the last minute, forcing Ruby and Tyson to improvise without losing the cake\u2019s heart.",
+        "The strange item Ruby found in the freezer turns out to have a connection to a longtime neighborhood customer.",
+        "Ruby puts their new closing routine to the test when Tyson realizes he has left something essential inside the bakery."
+      ]
+    },
+    {
+      "call_index": 2,
+      "elapsed_seconds": 4.458,
+      "tokens_input": 788,
+      "tokens_output": 126,
+      "cache_hit": false,
+      "generated_at": "2026-08-25T01:39:20.038335+00:00",
+      "model": "gpt-5.6-terra",
+      "substrate_summary": {
+        "episodes_used": 12,
+        "memories_used": 3,
+        "cast_count": 2
+      },
+      "suggestions_verbatim": [
+        "Ruby and Tyson audition neighborhood-friendly mascot ideas, but Tyson suspects one candidate has been sneaking pastries after hours.",
+        "The celebration-cake client reveals that the neighborhood baking competition has an unexpected theme, sending Ruby and Tyson scrambling for inspiration.",
+        "Tyson tries to prove the bakery is not haunted when a trail of floury footprints appears before opening.",
+        "Ruby and Tyson test their new closing routine during a hectic evening, only to realize the mascot prototype is missing.",
+        "A regular customer asks for a sourdough loaf made from a cherished family starter, raising questions about tradition and trust."
+      ]
+    },
+    {
+      "call_index": 3,
+      "elapsed_seconds": 3.5,
+      "tokens_input": 788,
+      "tokens_output": 118,
+      "cache_hit": false,
+      "generated_at": "2026-08-25T01:39:23.538724+00:00",
+      "model": "gpt-5.6-terra",
+      "substrate_summary": {
+        "episodes_used": 12,
+        "memories_used": 3,
+        "cast_count": 2
+      },
+      "suggestions_verbatim": [
+        "Ruby and Tyson meet a potential bakery mascot whose enthusiasm creates more problems than either expected.",
+        "The celebration-cake customer reveals that the neighborhood baking competition will be judged by a surprisingly familiar face.",
+        "Tyson investigates another late-night bakery noise and discovers a perfectly ordinary explanation that Ruby finds far more alarming.",
+        "A rush order for sourdough forces Ruby and Tyson to test whether their new closing partnership rule works under pressure.",
+        "Fox & Flour hosts a small neighborhood tasting night to choose a seasonal pastry, and the customers divide into fiercely loyal camps."
+      ]
+    }
+  ],
+  "all_suggestions_verbatim": [
+    "Ruby and Tyson try out mascot ideas during a busy Saturday service, with very different ideas of what feels welcoming.",
+    "A mysterious late-night noise makes Tyson reopen his haunted-bakery theory, while Ruby suspects a much more practical culprit.",
+    "The celebration-cake client changes the competition-themed design at the last minute, forcing Ruby and Tyson to improvise without losing the cake\u2019s heart.",
+    "The strange item Ruby found in the freezer turns out to have a connection to a longtime neighborhood customer.",
+    "Ruby puts their new closing routine to the test when Tyson realizes he has left something essential inside the bakery.",
+    "Ruby and Tyson audition neighborhood-friendly mascot ideas, but Tyson suspects one candidate has been sneaking pastries after hours.",
+    "The celebration-cake client reveals that the neighborhood baking competition has an unexpected theme, sending Ruby and Tyson scrambling for inspiration.",
+    "Tyson tries to prove the bakery is not haunted when a trail of floury footprints appears before opening.",
+    "Ruby and Tyson test their new closing routine during a hectic evening, only to realize the mascot prototype is missing.",
+    "A regular customer asks for a sourdough loaf made from a cherished family starter, raising questions about tradition and trust.",
+    "Ruby and Tyson meet a potential bakery mascot whose enthusiasm creates more problems than either expected.",
+    "The celebration-cake customer reveals that the neighborhood baking competition will be judged by a surprisingly familiar face.",
+    "Tyson investigates another late-night bakery noise and discovers a perfectly ordinary explanation that Ruby finds far more alarming.",
+    "A rush order for sourdough forces Ruby and Tyson to test whether their new closing partnership rule works under pressure.",
+    "Fox & Flour hosts a small neighborhood tasting night to choose a seasonal pastry, and the customers divide into fiercely loyal camps."
+  ],
+  "summary": {
+    "total_suggestions": 15,
+    "total_tokens_input": 2364,
+    "total_tokens_output": 373,
+    "cost_estimate_dollars_blended_at_0_013_per_1k": 0.0356
+  },
+  "invariants": {
+    "narrative_memory_write_delta": 0
+  }
+}

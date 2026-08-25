@@ -2758,3 +2758,526 @@ Trailer commit:                                   <appended in the same commit a
 
 **Do NOT implement any production change until Chris +
 ChatGPT review.**
+
+---
+
+# §P Durable cost-estimation lesson (Q281.3-α → future probes)
+
+**Recorded per Chris's explicit Q281.3-ε authorization
+instruction: "First, update the SESSION 281 audit to record
+the Q281.3-α cost-estimation error as a durable lesson."**
+
+## §P1 The mistake
+
+Q281.3-α authorized budget: **~$0.04**
+Q281.3-α actual spend:      **~$0.26** (~6.5×)
+
+Origin of the error (§N10.a): I derived the ~$0.04 estimate
+from Q280.9's curator per-call cost (~$0.02 for ~1600
+tokens, single call, minimal prompt). I did NOT re-estimate
+for a full `dialogue_scene` synthesis, which has a much
+larger prompt (retrieval + K2 + WC + FB + memory + task
+blocks ≈ 8500 tokens input) AND commonly requires two
+attempts (first-pass + corrective).
+
+## §P2 The rule for future probe cost estimates
+
+**Never estimate a `dialogue_scene` synthesis probe by
+extrapolating from curator-call cost.** They differ by
+~5-10× per call and `dialogue_scene` frequently fires twice
+per composition.
+
+Reference numbers from SESSION 280 §11.3 + Slice 281.1 real-
+provider verification + Q281.3-α:
+
+| primitive / call type                            | tokens_in / call | tokens_out / call | typical cost / call | calls / probe   |
+|--------------------------------------------------|------------------|-------------------|---------------------|-----------------|
+| `next_episode_suggestions` (v1 story-direction)  | ~600-900         | ~100-200          | ~$0.005-$0.02       | 1               |
+| Q280.9 / Slice 281.1 curator (composition-scoped)| ~1300-1600       | ~150-300          | ~$0.02              | 1               |
+| `dialogue_scene` synthesis (v1 shipping path)    | ~7000-9500       | ~1200-1800        | **~$0.05-$0.10**    | **1-2** per composition |
+
+Rule of thumb: for `dialogue_scene` synthesis probes,
+estimate at **~$0.10-$0.20 per composition** (single-arm)
+and **~$0.20-$0.40 per paired composition probe** (two
+arms). Then add ~20-40% headroom for the correction retry
+firing.
+
+**Curator per-call cost is NOT a proxy for full-scene
+synthesis cost.** They live in different order-of-magnitude
+brackets.
+
+## §P3 Where this lesson lives
+
+* Recorded here in §P as the durable lesson so future
+  orientation passes / probe designers see it before
+  authorizing spend.
+* Referenced in §Q1 below (Q281.3-ε cost transparency).
+* No CLAUDE.md / memory / feedback entry — probe cost
+  estimation is a per-session engineering discipline, not a
+  code-shape rule the codebase will remind you of.
+
+---
+
+# Q281.3-ε — v1 topic-shape sampling (EXECUTED)
+
+Authorization: Chris scoped Q281.3-ε from §O14 as the
+smallest next falsifiable question. Three fresh generations
+of the live v1 "Where could this story go next?" service
+against the current Fox & Flour substrate, `use_cache=False`
+each call, ~9-15 suggestion sample. No dialogue synthesis,
+no Episode creation, no memory promotion, no production
+change.
+
+Full evidence artifact:
+`docs/design/session281_experiment_data/q281_3_epsilon_v1_topic_shape_evidence.json`.
+
+Probe script (read-only, zero-mutation harness):
+`scripts/session281_q281_3_epsilon_v1_topic_shape_probe.py`.
+
+## §Q1 Cost transparency
+
+Authorized estimate range (per §P2 v1 reference):
+**~$0.015-$0.06** for 3 calls.
+
+Actual observed:
+
+| call | tokens_in | tokens_out | elapsed | candidates |
+|------|-----------|------------|---------|------------|
+| 1    | 788       | 129        | 4.49s   | 5          |
+| 2    | 788       | 126        | 4.46s   | 5          |
+| 3    | 788       | 118        | 3.50s   | 5          |
+| **Total** | **2364** | **373** | **~12s** | **15**     |
+
+Approximate blended spend (at Q280.9's ~$0.013/1k reference
+rate): **~$0.036**, within the authorized $0.015-$0.06
+range. The §P2 rule was calibrated correctly for v1 service
+scale.
+
+## §Q2 Current v1 prompt evidence (READ-ONLY)
+
+Full prompt at
+`shell/apps/universe/services/next_episode_suggestions.py:192-213`.
+Verbatim:
+
+```
+You are a story-development assistant. Your job is to notice
+possible next-Episode directions the operator MAY choose.
+
+GUARDRAILS:
+- These are POSSIBILITIES, never obligations.
+- The operator remains the director. Never imply the next
+Episode must continue any specific thread.
+- Do not decide for the operator. Do not commit to a linear
+story arc.
+- Do not describe implementation, do not say 'the system
+will'; describe possible in-world Episode premises the
+operator could pick up.
+- Where possible, pick up unresolved threads visible in past
+events. At least one suggestion may be a new direction if it
+fits the world.
+- Keep each suggestion short enough to work as an Episode
+topic without operator rewriting.
+
+OUTPUT FORMAT: JSON object with a single key 'suggestions'
+whose value is a list of exactly N strings. Each string is
+ONE sentence describing a possible next Episode. Do NOT
+number them.
+```
+
+The task-message closing instruction (line 264-272):
+
+```
+TASK: Suggest {n} possible next Episode directions for
+this Universe, one sentence each. These are possibilities
+the operator may pick, ignore, or override. Where possible,
+pick up unresolved threads from prior Episodes or past
+events. Keep each short enough to work as an Episode topic
+without rewriting.
+```
+
+**What the current v1 contract explicitly optimizes for:**
+
+* Suggestion **coverage** — many possible directions built
+  from prior Episodes + past events.
+* Operator **agency** — "possibilities, not obligations,"
+  "operator may pick, ignore, or override."
+* Format compactness — one sentence per topic, "short
+  enough to work as an Episode topic without rewriting."
+* Vocabulary discipline — no implementation words like
+  "system will."
+
+**What the current v1 contract does NOT require:**
+
+* On-stage cast subject.
+* Cast action verb.
+* Explicit complication / tension / obstacle.
+* Off-stage-actor restriction (nothing forbids "A customer
+  asks…", "The competition announces…", "A delivery
+  arrives…" grammar).
+* Dramatizable scene shape downstream.
+* Any scene-shape awareness of the `dialogue_scene`
+  primitive that will consume the picked topic.
+
+The generator's contract lives entirely upstream of the
+synthesizer's contract. There is no shared shape
+specification.
+
+## §Q3 15 sampled suggestions — verbatim
+
+**Call 1 (5 suggestions):**
+
+* 1.1 "Ruby and Tyson try out mascot ideas during a busy
+  Saturday service, with very different ideas of what feels
+  welcoming."
+* 1.2 "A mysterious late-night noise makes Tyson reopen his
+  haunted-bakery theory, while Ruby suspects a much more
+  practical culprit."
+* 1.3 "The celebration-cake client changes the competition-
+  themed design at the last minute, forcing Ruby and Tyson
+  to improvise without losing the cake's heart."
+* 1.4 "The strange item Ruby found in the freezer turns out
+  to have a connection to a longtime neighborhood customer."
+* 1.5 "Ruby puts their new closing routine to the test when
+  Tyson realizes he has left something essential inside the
+  bakery."
+
+**Call 2 (5 suggestions):**
+
+* 2.1 "Ruby and Tyson audition neighborhood-friendly mascot
+  ideas, but Tyson suspects one candidate has been sneaking
+  pastries after hours."
+* 2.2 "The celebration-cake client reveals that the
+  neighborhood baking competition has an unexpected theme,
+  sending Ruby and Tyson scrambling for inspiration."
+* 2.3 "Tyson tries to prove the bakery is not haunted when a
+  trail of floury footprints appears before opening."
+* 2.4 "Ruby and Tyson test their new closing routine during a
+  hectic evening, only to realize the mascot prototype is
+  missing."
+* 2.5 "A regular customer asks for a sourdough loaf made from
+  a cherished family starter, raising questions about
+  tradition and trust."
+
+**Call 3 (5 suggestions):**
+
+* 3.1 "Ruby and Tyson meet a potential bakery mascot whose
+  enthusiasm creates more problems than either expected."
+* 3.2 "The celebration-cake customer reveals that the
+  neighborhood baking competition will be judged by a
+  surprisingly familiar face."
+* 3.3 "Tyson investigates another late-night bakery noise and
+  discovers a perfectly ordinary explanation that Ruby finds
+  far more alarming."
+* 3.4 "A rush order for sourdough forces Ruby and Tyson to
+  test whether their new closing partnership rule works under
+  pressure."
+* 3.5 "Fox & Flour hosts a small neighborhood tasting night to
+  choose a seasonal pastry, and the customers divide into
+  fiercely loyal camps."
+
+**Original bad suggestion (Chris's picked topic that produced `565cd8c8`):**
+
+* ORIG "A customer asks Fox & Flour to create a celebration
+  cake for an event tied to the neighborhood baking
+  competition."
+
+## §Q4 Classification table (A/B/C/D/E rubric)
+
+Classification is manual per-suggestion judgment against the
+five axes Chris defined. `Y-` denotes a marginal-yes call;
+`N-` a marginal-no. Ambiguous cases resolved conservatively
+(closer to a stricter reading of the axis).
+
+| #    | A on-stage cast subject | B cast action verb | C explicit complication | D off-stage initiator | E dramatizable |
+|------|-------------------------|--------------------|--------------------------|-----------------------|-----------------|
+| 1.1  | Y                       | Y                  | Y                        | N                     | Y               |
+| 1.2  | Y                       | Y                  | Y                        | N                     | Y               |
+| 1.3  | N                       | N                  | Y                        | Y                     | Y-              |
+| 1.4  | Y-                      | Y-                 | Y-                       | N                     | Y-              |
+| 1.5  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.1  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.2  | N                       | N                  | Y                        | Y                     | Y-              |
+| 2.3  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.4  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.5  | N                       | N                  | N                        | Y                     | **N**           |
+| 3.1  | Y                       | Y                  | Y                        | N                     | Y               |
+| 3.2  | N                       | N                  | Y-                       | Y                     | **N**           |
+| 3.3  | Y                       | Y                  | Y                        | N                     | Y               |
+| 3.4  | N                       | N                  | Y                        | Y                     | Y-              |
+| 3.5  | N                       | N                  | Y                        | Y                     | Y-              |
+| **ORIG** | **N**               | **N**              | **N**                    | **Y**                 | **N**           |
+
+## §Q5 Summary metrics (strict-yes tallies only)
+
+Sample size **n = 15**. Denominators fixed. Marginal (`Y-`)
+calls counted as NO for strict tallies; a lenient tally is
+reported below when informative.
+
+| axis                                            | strict-yes count | %       |
+|-------------------------------------------------|------------------|---------|
+| A — on-stage cast subject                        | 8                | 53%     |
+| B — cast action verb                             | 8                | 53%     |
+| C — explicit complication                        | 12               | 80%     |
+| D — off-stage initiating actor                   | 6                | 40%     |
+| E — dramatizable without reinterpretation        | 8                | 53%     |
+
+Lenient tallies (Y + Y- counted):
+
+| axis                                            | lenient count    | %       |
+|-------------------------------------------------|------------------|---------|
+| A                                                | 9                | 60%     |
+| B                                                | 9                | 60%     |
+| C                                                | 14               | 93%     |
+| E                                                | 13               | 87%     |
+
+## §Q6 Combinations of interest
+
+| combination                                                  | count | %       | which                                                 |
+|--------------------------------------------------------------|-------|---------|--------------------------------------------------------|
+| B AND C (cast action + complication) — strong shape          | 8     | 53%     | 1.1, 1.2, 1.5, 2.1, 2.3, 2.4, 3.1, 3.3                 |
+| D AND C (off-stage subject + complication) — mixed shape     | 4     | 27%     | 1.3, 2.2, 3.4, 3.5                                     |
+| D AND NOT C (off-stage subject + no complication) — CONTROL-shape signature | 1 | **7%** | **2.5 only** (matches ORIG's signature)              |
+| A AND B AND C AND E (fully event-shape)                       | 8     | 53%     | same as row 1                                          |
+| D AND NOT A AND NOT B AND NOT C AND NOT E (ORIG's exact 5-axis signature) | 1 | **7%** | **2.5 only**                                          |
+
+## §Q7 Where does the ORIGINAL bad suggestion fall?
+
+The ORIG suggestion sits in a distribution class of **exactly
+1 of 15 sampled suggestions (2.5)** — the "off-stage subject
++ no complication + not dramatizable" corner of the space.
+
+* 2.5 "A regular customer asks for a sourdough loaf made from
+  a cherished family starter, raising questions about
+  tradition and trust." — matches ORIG on all 5 axes.
+
+So Chris's `565cd8c8` selection was **the ~7% worst-case
+shape** in v1 output. Not the modal shape, but not
+unprecedented either — the generator DOES produce these
+occasionally. If the operator's selection rate on this
+worst-case shape is anywhere close to uniform, roughly 1 in
+15 selected Episodes will land on it.
+
+**However, the broader risk class is larger.** 6 of 15 (40%)
+suggestions have an off-stage initiating actor (D=Y). Even
+when those have an explicit complication (D AND C = 27%),
+they carry meaningful risk of collapsing to the same
+customer-service-discussion shape `565cd8c8` exhibited,
+because the initiating action still happens off-stage.
+
+The safer distribution — cast subject + cast action verb +
+complication (A AND B AND C) — is exactly **53%** of v1
+output. Just over half.
+
+## §Q8 Q281.3-ε verdict
+
+**Neither pure hypothesis holds cleanly.**
+
+* Hypothesis "CONTROL-shape is common in v1 output" —
+  **weakened** in its strong form. Only 7% (1/15) exhibits
+  the ORIG's exact all-five-axis CONTROL signature. The
+  generator is not dominated by that failure mode.
+* Hypothesis "TREATMENT-shape is already common in v1
+  output" — **partially supported**. The strong-shape (A AND
+  B AND C) fraction is 53%. Just over half — meaningfully
+  common but not overwhelming.
+
+The true picture is trimodal:
+
+1. **STRONG dramatizable event-shape** (A+B+C): **53%** —
+   safe.
+2. **MIXED off-stage-with-complication shape** (D+C, not A):
+   **27%** — meaningful downstream risk. May dramatize okay
+   or may collapse depending on how the model reinterprets
+   the off-stage initiator.
+3. **WEAK pure-CONTROL shape** (D + no C, not dramatizable):
+   **~7%** — reliable failure mode, matches ORIG.
+
+Roughly **1 in 3 v1 suggestions carries some measurable risk
+of the story-execution failure `565cd8c8` exhibited** (mixed
++ weak categories combined = ~34%). Roughly **1 in 15
+carries the ORIG-strength worst-case risk.**
+
+**Was Chris's selection unusual?** In the ORIG-exact-shape
+sense: **yes, ~7% frequency**. In the broader risk-class
+sense (off-stage initiator, D=Y): **no, ~40% frequency**.
+
+## §Q9 Effect on Hβ (v1 topic-grammar contract)
+
+**Strengthened but nuanced.** The right framing is not "v1
+always produces CONTROL-shape" (it doesn't); it's "v1
+produces a mixed distribution where ~7% is worst-case-failure
+and ~40% carries meaningful failure risk, because the
+current contract has no dramatizability requirement."
+
+Two Hβ-shape variants suggest themselves. **Both remain
+hypotheses; neither is authorized here.**
+
+* **Hβ-strict**: v1 prompt requires every suggestion to have
+  (A cast subject) AND (B cast verb) AND (C complication)
+  before emission. Would push the strong-shape fraction from
+  53% toward 100%. Risk: filters out legitimate scenarios
+  like 3.5 (neighborhood tasting night; ensemble scene)
+  which might be desirable but don't fit the cast-verb
+  frame.
+* **Hβ-permissive**: v1 prompt is augmented with a
+  "PREFERENCE" (not requirement) toward dramatizable shape,
+  softly steering the distribution without banning the
+  ensemble / off-stage-triggered shapes entirely. Would
+  likely move the distribution to ~70-80% strong-shape while
+  preserving variety.
+
+Chris + ChatGPT to decide direction if Hβ is authorized as
+a slice.
+
+## §Q10 Alternative to changing v1 prompt
+
+**Hη (new fix-shaped hypothesis emerging from Q281.3-ε):**
+the SPA operator-side surface could offer a light "make it
+more scene-shaped" affordance on any suggestion the operator
+picks. Cost of this alternative:
+
+* No v1 generator change (variety preserved).
+* Operator sees the current suggestion menu; can pick any
+  including off-stage-subject ones.
+* On pick, the SPA optionally offers to rewrite into
+  TREATMENT-shape (small LLM call, similar to curator
+  scale).
+* Falsifiable: whether operators use the rewrite affordance
+  or ignore it.
+
+Hη is a distinct product bet from Hβ. Not authorized here.
+Recorded as a §Q10 candidate for Chris + ChatGPT scope-lock.
+
+## §Q11 What is PROVEN (post-Q281.3-ε)
+
+* v1 output is trimodal on the dramatizability axes:
+  ~53% strong / ~27% mixed / ~7% weak-CONTROL / ~13% other
+  ambiguous. Sample n=15 with strict-yes tallies; lenient
+  tallies push strong-shape higher.
+* The ORIG bad suggestion signature is real but rare
+  (~7%). Not modal.
+* Off-stage-initiator suggestions (D=Y, 40% of sample) are
+  the broader risk class.
+* The current v1 prompt does not require dramatizable shape
+  and does not impose an off-stage-actor restriction.
+  Verified verbatim from
+  `next_episode_suggestions.py:192-213 + 264-272`.
+* v1 service cost estimate from SESSION 280 §11.3 was
+  correctly calibrated (probe hit $0.036 within the
+  $0.015-$0.06 window).
+* Zero DB mutations. NarrativeMemory count unchanged at 20;
+  mascot memory `73acdfc0` untouched.
+
+## §Q12 What remains AMBIGUOUS (post-Q281.3-ε)
+
+* **Distribution stability across Universes.** Only Fox &
+  Flour tested. Patch's Workshop with a stronger continuity
+  corpus (14 memories) might produce a different mix —
+  possibly more event-shape suggestions because past-event
+  substrate is richer.
+* **Which mixed-shape (D+C) suggestions actually collapse
+  to CONTROL-failure vs successfully dramatize.** No
+  paired-synthesis probes on the 4 D+C specimens
+  (1.3, 2.2, 3.4, 3.5). Would require ~$0.20-$0.40 per
+  paired synthesis (per §P2), so ~$0.80-$1.60 to test all
+  four — a meaningful spend.
+* **Whether an Hβ-strict prompt filter would degrade the
+  legitimate variety** the current 27% mixed and 13%
+  ambiguous categories provide.
+* **Whether operator selection is uniform across the
+  distribution.** Chris picked a ~7% specimen; may be
+  bad luck or may reflect operator-preference bias toward
+  a specific shape. Only 1 operator, 1 dogfood so far.
+
+## §Q13 Effect on §N10 / §O13 fix-shaped hypotheses (updated)
+
+* **Hα** (dialogue_scene wrong primitive) — **weakened
+  further**. Q281.3-α showed the same primitive handles
+  TREATMENT well; Q281.3-ε shows ~53% of v1 suggestions
+  ALREADY have the right shape.
+* **Hβ** (v1 prompt augmentation for dramatizable shape) —
+  **strengthened but with nuance**. Two variants (strict vs
+  permissive) each have tradeoffs. See §Q9.
+* **Hγ** (memory-framing wording) — **still deferred**.
+  Q281.3-γ not authorized.
+* **Hδ** (memory-framing "Use them" → "may cite") — **still
+  deferred**.
+* **Hε** (`top_k=0` default) — **still probably undesirable**.
+* **Hζ** (threshold retrieval vs top-k) — **still valid**
+  but lower priority than Hβ.
+* **Hη** (SPA-side rewrite affordance on pick) — **new,
+  from Q281.3-ε**. Alternative to Hβ. See §Q10.
+
+## §Q14 Smallest next falsifiable question
+
+Two candidates. Chris + ChatGPT to pick one (or neither).
+
+### Q281.3-ζ — Cross-Universe distribution check
+
+Fires the same 3× v1 probe against Patch's Workshop
+(`56d16b63-652e-4f54-bc7e-39114bbfc4c5`, 32 Episodes, 14
+memories). Compare topic-shape distribution vs the 15-sample
+Fox & Flour baseline.
+
+* Purpose: confirm v1 distribution is stable across
+  Universes or reveal it's substrate-sensitive. If Patch's
+  Workshop produces very different distribution (e.g.
+  higher strong-shape %, because more resolved past-event
+  material to build event-arrivals from), Hβ's design
+  changes.
+* Cost: **~$0.03-$0.06** at v1 scale (per §P2 v1
+  reference). Cheap.
+* No production changes.
+
+### Q281.3-η — SPA affordance UX design ONLY (no implementation)
+
+Chris + ChatGPT design the SPA-side "make it more scene-
+shaped" affordance in a design-only slice (like Slice 280's
+§79 v1.5 curator UX design ratification). Locks the shape
+of a future implementation slice without cost or code
+change.
+
+* Purpose: decide whether Hη is a real alternative to Hβ
+  before spending on either.
+* Cost: **$0.00** (design work).
+* No production changes.
+
+**Recommendation:** Q281.3-ζ first, because it's the cheaper
+data point and its outcome (stable distribution vs
+substrate-sensitive) tightens the Hβ design. Then Chris +
+ChatGPT design gate on Hβ vs Hη based on the combined
+Q281.3-α + β* + ε + ζ evidence.
+
+*(Q281.3-β is still deferred per Chris's Q281.3-ε
+authorization — "Memory work is deferred.")*
+
+## §Q15 Q281.3-ε landing SHA
+
+```
+Probe evidence + script + audit doc landing SHA: <filled on next commit>
+Trailer commit:                                   <filled on next commit>
+```
+
+## §Q16 Q281.3-ε decision gate
+
+**Awaiting Chris + ChatGPT review.**
+
+1. Neither pure hypothesis about v1 output holds. v1 is
+   trimodal: ~53% strong-shape / ~27% mixed / ~7% weak-
+   CONTROL / ~13% ambiguous.
+2. ORIG bad suggestion signature is real but rare (~7%);
+   the broader off-stage-initiator risk class is ~40%.
+3. Current v1 prompt has no dramatizability requirement or
+   off-stage-actor restriction.
+4. Hβ strengthened but with nuance — strict vs permissive
+   variants (§Q9); Hη alternative emerging (§Q10).
+5. Cost stayed within the authorized $0.015-$0.06 window
+   (~$0.036 actual); the §P2 lesson calibration held for v1
+   service scale.
+6. Recommended next probe: **Q281.3-ζ** cross-Universe
+   distribution check on Patch's Workshop (~$0.03-$0.06).
+7. Zero production changes. Zero DB mutations. Fox & Flour
+   substrate + all memories still unmodified.
+
+**Do NOT implement any production change until Chris +
+ChatGPT review.**
