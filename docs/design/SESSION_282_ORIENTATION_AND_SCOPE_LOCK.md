@@ -2685,7 +2685,418 @@ safety is now established.
 
 ---
 
-# §23 Slice 282.2 — Decision gate (recalibration complete)
+# §24 Slice 282.2 — Zero-spend protocol correction
+
+## §24.1 Framing (LOCKED)
+
+Slice 282.2 methodology review found two internal
+inconsistencies in the §22 recalibration:
+
+* **C1 (metric-definition inconsistency):** §22.4 computed
+  the T0 multi-thread rate as `CI-3+` (40%), but §22.3
+  correctly defines CI-3 = multi-thread AND CI-4 = new
+  consequence WITHOUT requiring multi-thread. Therefore
+  `multi_thread_rate = CI-3+` is category-error;
+  multi-thread must be counted from
+  `distinct_threads_used >= 2` independently of CI tier.
+* **C2 (guardrail-vs-noise inconsistency):** §22.5.1
+  A/B REGRESSION breach at `< 55%` fires on a single
+  reclassification at n=15 (9/15 = 60% → 8/15 = 53.3%),
+  which directly contradicts the §22.8 "±13pp raw
+  binomial noise at n=15" statement. A formal REGRESSION
+  threshold cannot fire on within-noise variance without a
+  strong methodological reason.
+
+This correction:
+
+* **BEFORE** any post-T0 operator observation. No Chris
+  gesture yet. No new composition. No provider call.
+* Corrects internal metric/threshold consistency; is NOT
+  a reaction to outcome data.
+* Preserves the locked per-suggestion T0 CI
+  classifications in §22.4 (none of them are
+  demonstrably wrong; only the aggregate metric
+  definition was wrong).
+* Preserves PW-as-reference framing, historical-delta-
+  as-context, T0 raw artifact, operator-first constraint,
+  evidence-weighting rule, and the SUPPORT / NO-MOVEMENT
+  / REGRESSION / INSUFFICIENTLY-CONVERGED / CONFOUNDED
+  disposition set.
+* Introduces an explicit two-tier structural axis
+  reading (WARNING vs REGRESSION) so genuine
+  degradation is captured without noise-level triggers.
+
+§22 is not retracted. §24 supersedes specific portions
+of §22 (§22.4 multi-thread cell, §22.5.1 guardrails, and
+the SUPPORT / NO-MOVEMENT / REGRESSION continuity clauses)
+for all post-T0 evidence.
+
+**Explicit scientific-honesty note:** this correction
+occurs post-T0-observation and pre-first-Chris-gesture.
+Like §22, it is a pre-observation methodology adjustment
+in response to internal-consistency defects, not
+post-hoc threshold tuning against outcome data.
+
+## §24.2 Correction C1 — decouple multi-thread metric
+
+### 24.2.1 Corrected definitions
+
+* `structural_rate` = fraction of suggestions with CI ≥ 2.
+  **Unchanged.** Category-based; CI-2, CI-3, CI-4 all
+  contribute.
+* `consequence_generation_rate` = fraction of suggestions
+  with CI = 4. **Unchanged.** Category-based.
+* `multi_thread_rate` = fraction of suggestions with
+  `distinct_threads_used ≥ 2`. **CORRECTED —
+  independent of CI tier.** A single-thread CI-4 does not
+  count as multi-thread; a two-thread CI-2 does.
+
+### 24.2.2 T0 verification against locked §22.4 table
+
+Applying the corrected definition to the LOCKED §22.4
+per-suggestion table (no re-classification, only re-tally):
+
+| # | CI | `distinct_threads_used` count | multi-thread? |
+|---|-----|-------------------------------|----------------|
+| 1.1 | CI-3 | 2 (M3, E9/E12) | **YES** |
+| 1.2 | CI-2 | 1 (E6) | no |
+| 1.3 | CI-2 | 1 (E12) | no |
+| 1.4 | CI-4 | 2 (M3, M1/E11) | **YES** |
+| 1.5 | CI-0 | 0 | no |
+| 2.1 | CI-2 | 1 (M3) | no |
+| 2.2 | CI-2 | 1 (E12) | no |
+| 2.3 | CI-3 | 2 (E6, E8) | **YES** |
+| 2.4 | CI-4 | 1 (M1) | no |
+| 2.5 | CI-0 | 0 | no |
+| 3.1 | CI-2 | 1 (M3) | no |
+| 3.2 | CI-3 | 2 (E12, E9) | **YES** |
+| 3.3 | CI-2 | 1 (E6) | no |
+| 3.4 | CI-4 | 1 (M1) | no |
+| 3.5 | CI-0 | 0 | no |
+
+**Confirmed multi-thread count: 4/15 = 26.7%.**
+
+Not 40%. The prior 40% figure was `CI-3+` (which
+included the three CI-4 rows, two of which are single-
+thread: 2.4 and 3.4 both use only M1).
+
+### 24.2.3 Downstream metric corrections
+
+§22.4.1 aggregate table (partial correction):
+
+| metric | prior value | **CORRECTED value** |
+|--------|-------------|----------------------|
+| Structural rate (CI-2+) | 80% (12/15) | 80% (12/15) — unchanged |
+| Consequence rate (CI-4) | 20% (3/15) | 20% (3/15) — unchanged |
+| **Multi-thread rate** | **40% (6/15)** | **26.7% (4/15)** |
+| Distinct-thread diversity | 6 | 6 — unchanged |
+| Thread concentration | 33% (M3 or E12 = 4/12 continuity-using) | 33% — unchanged |
+
+CI-0/CI-1/CI-2/CI-3/CI-4 per-tier counts are unchanged
+(only the aggregate multi-thread metric was miscomputed).
+
+## §24.3 Correction C2 — n=15 granular guardrails + WARNING tier
+
+At n=15 the integer count is the fundamental unit.
+Framing every threshold in both percentage and n/15
+integer count eliminates the ambiguity that produced
+§22.5.1's single-reclassification-fires-REGRESSION
+problem.
+
+### 24.3.1 Corrected §22.5.1 guardrails (LOCKED)
+
+Two-tier reading: **WARNING** (emerging negative
+evidence, recorded, does NOT trigger scope-lock pause)
+and **REGRESSION** (formal breach, triggers scope-lock
+pause per §22.6.3).
+
+| axis | T0 count | T0 % | WARNING threshold | REGRESSION threshold |
+|------|----------|------|--------------------|-----------------------|
+| A on-stage cast subject | 9/15 | 60% | ≤ 8/15 (53.3%) | **≤ 7/15 (46.7%)** |
+| B cast action verb | 9/15 | 60% | ≤ 8/15 (53.3%) | **≤ 7/15 (46.7%)** |
+| C explicit complication | 15/15 | 100% | ≤ 13/15 (86.7%) | **≤ 12/15 (80.0%)** |
+| E dramatizable | 12/15 | 80% | ≤ 10/15 (66.7%) | **≤ 9/15 (60.0%)** |
+| Weak-CONTROL | 0/15 | 0% | ≥ 1/15 (6.7%) | **≥ 2/15 (13.3%)** |
+
+Rationale for the specific integer offsets:
+
+* **A/B**: WARNING = 1-count drop (within ~±13pp noise,
+  but a directionally-consistent single drop is worth
+  recording); REGRESSION = 2-count drop (33% deeper
+  than a single-classification change, exceeds
+  noise-adjacent variance).
+* **C**: WARNING = 2-count drop (100% → 87%);
+  REGRESSION = 3-count drop (100% → 80%, which equals
+  the Q281.3-ε historical starting value — losing all
+  post-baseline C-gain).
+* **E**: WARNING = 2-count drop; REGRESSION = 3-count
+  drop (80% → 60%, which returns E close to Q281.3-ε
+  historical 53%).
+* **Weak-CONTROL**: WARNING = 1 weak-CONTROL suggestion
+  (matches Q281.3-ε historical 7%); REGRESSION = 2
+  weak-CONTROL suggestions (~13%, materially worse than
+  historical baseline).
+
+### 24.3.2 D-axis directional target (LOCKED, expressed as counts)
+
+* T0 D = 6/15 = 40%
+* PW reference D = 3/15 = 20%
+* Directional-toward-PW target: **≤ 4/15 (26.7%)** at
+  any post-T0 checkpoint.
+* Directional-away-from-PW note (not a REGRESSION):
+  ≥ 8/15 (53.3%). Recorded, not scope-lock-triggering.
+
+## §24.4 Corrected §22.6.1 SUPPORT criteria
+
+Requires ALL of:
+
+1. **Structural preservation:** no §24.3.1 REGRESSION
+   threshold breached at the checkpoint's v1 re-sample.
+   WARNING-tier hits recorded but do NOT falsify
+   SUPPORT.
+2. **Continuity-integration growth:** at least ONE of:
+   * **CI-4 (consequence-generation) rate ≥ 5/15
+     (33.3%)** — a 2-count increase from T0's 3/15
+     (was previously stated as "≥ 30%", corrected to
+     n/15 integer form; 33.3% = 5/15 is the smallest
+     count above 30% at n=15).
+   * **Multi-thread rate ≥ 6/15 (40.0%)** —
+     CORRECTED from prior "≥ 50%". A 2-count increase
+     from T0's corrected 4/15. Chosen because +2 count
+     exceeds n=15 noise-adjacent variance while
+     remaining sensitive enough to detect genuine
+     growth; +3 count (7/15 = 46.7%) is the STRONG
+     variant and can be recorded as extra evidence.
+   * **Distinct-thread diversity grows to include ≥ 3
+     of the post-T0 promoted memories** — i.e., at
+     least 3 memories Chris promotes during
+     post-baseline dogfood appear as structural
+     references in a future v1 sample. Unchanged;
+     count-based already.
+3. **Story-execution evidence:** ≥ 2 of Chris's
+   post-T0 compositions read event-shaped with
+   structural memory alignment (Q281.3-α axes).
+   Unchanged.
+4. **Chris subjective judgment:** F&F stories feel
+   richer without prompting. Unchanged.
+
+## §24.5 Corrected §22.6.2 NO MOVEMENT criteria
+
+After ≥ 5 additional Chris compositions:
+
+* All §24.3.1 REGRESSION thresholds unbroken (WARNING
+  tier may or may not fire), AND
+* Continuity-integration deltas within ±1 count on each
+  of structural rate (CI-2+), multi-thread rate,
+  consequence-generation rate — i.e., structural
+  rate ∈ [11/15, 13/15]; multi-thread ∈ [3/15, 5/15];
+  CI-4 ∈ [2/15, 4/15]. This replaces "±5pp of T0"
+  which was too vague at n=15.
+* Distinct-thread diversity ≤ T0 + 1 (substrate grew
+  but v1 didn't broaden usage). Unchanged.
+* Chris subjective judgment: no felt change. Unchanged.
+
+Preservation remains POSITIVE (loop is non-destructive
+at operator scale) but not SUPPORT for Hθ.
+
+## §24.6 Corrected §22.6.3 REGRESSION triggers
+
+Any ONE of:
+
+* Any §24.3.1 REGRESSION-tier threshold breached at
+  any post-T0 checkpoint (A ≤ 7/15, B ≤ 7/15, C ≤ 12/15,
+  E ≤ 9/15, Weak-CONTROL ≥ 2/15).
+* Structural rate (CI-2+) drops to ≤ 9/15 (60%) —
+  a 3-count drop from T0's 12/15 (was previously
+  "< 65%"; corrected to integer form).
+* Distinct-thread diversity SHRINKS from T0's 6
+  (fewer than 6 unique threads used across the
+  checkpoint's 15 suggestions, despite substrate
+  growth). Unchanged in spirit; explicit count
+  applied.
+* Thread concentration ≥ 9/15 = 60% on any single
+  thread. Unchanged.
+* Story-execution rubric shows more procedural runs
+  than in the SESSION 281 §T record. Unchanged.
+* Chris subjective judgment: F&F stories feel worse or
+  more repetitive. Unchanged.
+
+## §24.7 Preserved verbatim from §22 (not affected by C1 or C2)
+
+* §22.1 recalibration-framing scientific honesty note.
+* §22.2 PW-as-reference-not-target framing.
+* §22.3 CI rubric categorical definitions (CI-0 through
+  CI-4).
+* §22.4 per-suggestion T0 classification table (every
+  row LOCKED and unchanged; only the aggregate
+  multi-thread metric was miscomputed).
+* §22.4.1 T0 raw counts CI-0 through CI-4 (only
+  multi-thread rate corrected).
+* §22.4.2 T0 key observations (M2 zero-reference finding,
+  CI-4-uses-memories finding, thread-coverage skew
+  toward recent substrate) — unaffected.
+* §22.5.2 D-axis directional target — reformulated to
+  n/15 counts in §24.3.2, same intent.
+* §22.6.4 CONFOUNDED list — unchanged.
+* §22.6.5 emerging-evidence rule — unchanged; and now
+  the §24.3.1 WARNING tier operationalizes it for
+  structural axes specifically.
+* §22.7 historical §18.8 audit-trail preservation.
+* §22.8 methodological concerns (still valid; §24
+  addresses the specific "single-reclassification
+  triggers REGRESSION" issue but the broader concerns
+  about classifier drift, subjective judgment load,
+  and PW-as-two-n=15-measurements remain).
+* Historical 11 Ep / 1 mem → 12 Ep / 3 mem delta
+  remains note-only context (§22.1 stipulation).
+* T0 raw artifact
+  (`docs/design/session282_experiment_data/q282_2_v1_baseline.json`)
+  — unchanged.
+* Operator-first constraint (§18.3) — unchanged.
+* No further tuning after Chris's first post-T0
+  gesture — REAFFIRMED here. §24 is the last
+  methodology adjustment before observation begins.
+
+## §24.8 Corrected T0 aggregate summary (canonical)
+
+| metric | value at n=15 |
+|--------|---------------|
+| CI-0 count | 3/15 (20%) |
+| CI-1 count | 0/15 (0%) |
+| CI-2 count | 6/15 (40%) |
+| CI-3 count | 3/15 (20%) |
+| CI-4 count | 3/15 (20%) |
+| Structural rate (CI-2+) | 12/15 (80%) |
+| **Multi-thread rate (distinct_threads_used ≥ 2)** | **4/15 (26.7%)** |
+| Consequence-generation rate (CI-4) | 3/15 (20%) |
+| Distinct-thread diversity | 6 unique threads |
+| Thread concentration (top thread) | 4/12 continuity-using = 33% |
+
+Every future checkpoint compares against these
+integer counts (not against nominal percentages) per
+§24.3-§24.6.
+
+## §24.9 Whether any other §22 conclusions changed
+
+Reviewed each §22 subsection against C1 and C2:
+
+* §22.1 framing: **unchanged**.
+* §22.2 PW reframing: **unchanged**.
+* §22.3 CI rubric: **unchanged** (rubric was correct;
+  aggregate metric formula in §22.4 was the error).
+* §22.4 per-suggestion table: **unchanged** (no
+  classification revision).
+* §22.4.1 aggregate table: **multi-thread cell
+  corrected 40% → 26.7% (4/15)**; other cells
+  unchanged.
+* §22.4.2 four key observations: **all unchanged**;
+  none referenced the miscomputed multi-thread number.
+  In particular: "All 3 CI-4 candidates use MEMORIES,
+  not just Episode-titles" remains valid.
+  "M2 dialogue_callback has 0 references" remains
+  valid. "Recent substrate dominates coverage" remains
+  valid.
+* §22.5.1 guardrails: **superseded by §24.3.1
+  two-tier (WARNING + REGRESSION) integer-count
+  thresholds**.
+* §22.5.2 D-axis: **reformulated to counts in §24.3.2**,
+  same directional intent.
+* §22.6.1 SUPPORT: **superseded by §24.4** (thresholds
+  adjusted to integer counts consistent with corrected
+  multi-thread definition; every criterion clause
+  preserved).
+* §22.6.2 NO MOVEMENT: **superseded by §24.5** (bands
+  expressed as integer count ranges; substantive intent
+  preserved).
+* §22.6.3 REGRESSION: **superseded by §24.6** (adds the
+  explicit §24.3.1 breach references; substantive
+  intent preserved).
+* §22.6.4 CONFOUNDED: **unchanged**.
+* §22.6.5 emerging-evidence rule: **unchanged**;
+  §24.3.1 WARNING tier extends the same logic to
+  structural axes.
+* §22.7-§22.9: **unchanged**.
+
+**No other §22 conclusions changed.** The corrections
+are localized: one aggregate-metric formula and one
+integer-count-vs-percentage threshold family.
+
+## §24.10 Methodological notes
+
+1. **Both corrections are internal-consistency fixes,
+   not response to observed evidence.** No post-T0
+   observation has occurred. This preserves the
+   scientific-honesty guarantee (§22.1) that
+   recalibration/correction precedes new evidence.
+2. **§24.3.1 WARNING tier explicitly does NOT trigger
+   scope-lock pause.** It is emerging negative
+   evidence recorded per §22.6.5. Only REGRESSION
+   thresholds trigger §22.6.3 scope-lock pause.
+3. **Multi-thread SUPPORT threshold (6/15 = 40%) is a
+   +2-count growth from T0's 4/15.** Chosen because
+   +1 (5/15 = 33%) is single-classification-change
+   territory and +2 is the smallest count-increase that
+   is unambiguously above the noise floor. +3 (7/15 =
+   46.7%) is the STRONG variant and would be recorded
+   as extra evidence if it fires.
+4. **CI-4 SUPPORT threshold (5/15 = 33.3%) is a
+   +2-count growth from T0's 3/15.** Same reasoning
+   as multi-thread.
+5. **Structural-rate REGRESSION threshold (9/15 =
+   60%) is a -3-count drop from T0's 12/15.**
+   Chosen because -2 is edge-of-noise and -3
+   is a clear signal that continuity integration
+   is degrading despite substrate growth.
+6. **Every threshold is expressed as both integer
+   count and percentage** so subsequent classification
+   passes cannot equivocate. The integer count is
+   the authoritative form.
+7. **PW's numerical values remain reference not
+   target.** §24 does not introduce any "F&F must
+   reach PW's N/15 count on axis X" criterion.
+
+## §24.11 First-natural-gesture safety and interpretability
+
+**Engineering safety:** unchanged from §20.13.3.
+Nothing in §24 alters the loop's operational safety.
+
+**Interpretive safety:** each of the §24.3.1 axes now
+has:
+
+* A T0 count as the reference point (§24.8).
+* A WARNING threshold that captures emerging negative
+  evidence without pathological sensitivity.
+* A REGRESSION threshold that requires ≥ 2 (usually 3)
+  count-drop moves — safely outside single-
+  classification and single-inference noise.
+
+Continuity-integration axes have:
+
+* Corrected T0 metrics (§24.8).
+* SUPPORT thresholds at unambiguous +2-count growth
+  (§24.4).
+* NO MOVEMENT bands at ±1-count around T0 (§24.5).
+* REGRESSION triggers at -3-count on structural rate
+  and diversity-shrink on thread coverage (§24.6).
+
+Every possible checkpoint outcome now maps
+unambiguously to SUPPORT / NO-MOVEMENT / REGRESSION /
+INSUFFICIENTLY-CONVERGED / CONFOUNDED. **First gesture
+is now cleanly interpretable and RECOMMENDED, subject
+to Chris + ChatGPT final green-light.**
+
+## §24.12 Slice 282.2 correction landing SHA
+
+* §24 zero-spend protocol correction: **this commit's
+  SHA** (appended in trailer).
+* No new experiment data. No new provider spend.
+* T0 raw artifact unchanged.
+* Every substrate row (F&F 12 Ep / 3 mem, PW 32 Ep / 14
+  mem) unchanged.
+
+---
+
+# §25 Slice 282.2 — Decision gate (correction complete)
 
 **HALT.** Zero-spend recalibration complete.
 
