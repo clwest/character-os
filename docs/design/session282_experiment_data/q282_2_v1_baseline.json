@@ -1,0 +1,132 @@
+{
+  "probe": "q282_2_v1_baseline",
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "substrate_at_execution": {
+    "episodes": 12,
+    "remembered_memories": 3,
+    "cast_count": 2
+  },
+  "executor_sha": "8b0290d05418300314453df5b8058e2641f78bec",
+  "total_tokens_input": 2364,
+  "total_tokens_output": 385,
+  "model": "gpt-5.6-terra",
+  "calls": [
+    {
+      "suggestions": [
+        {
+          "text": "Ruby and Tyson meet a customer who insists the bakery\u2019s mascot should judge the neighborhood baking competition."
+        },
+        {
+          "text": "Tyson tries to prove the bakery is not haunted after a fresh loaf appears on the cooling rack with no one claiming it."
+        },
+        {
+          "text": "The celebration-cake customer changes their competition-themed design at the last possible minute."
+        },
+        {
+          "text": "Ruby brings a mascot candidate to the bakery, and Tyson worries it will derail the new closing routine."
+        },
+        {
+          "text": "A sudden rush for seasonal pastries forces Ruby and Tyson to improvise a neighborhood tasting table."
+        }
+      ],
+      "substrate_summary": {
+        "episodes_used": 12,
+        "memories_used": 3,
+        "cast_count": 2
+      },
+      "generated_at": "2026-08-25T03:01:32.979786+00:00",
+      "model": "gpt-5.6-terra",
+      "cache": {
+        "hit": false,
+        "ttl_seconds": 600
+      },
+      "tokens_input": 788,
+      "tokens_output": 111,
+      "_probe_meta": {
+        "probe": "q282_2_v1_baseline",
+        "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "call_index": 1,
+        "use_cache": false,
+        "executor_sha": "8b0290d05418300314453df5b8058e2641f78bec"
+      }
+    },
+    {
+      "suggestions": [
+        {
+          "text": "Ruby and Tyson test a few mascot ideas during a busy morning, only to discover the neighborhood has very strong opinions."
+        },
+        {
+          "text": "A competition organizer visits to confirm Fox & Flour\u2019s cake order, and Tyson realizes the event has stricter rules than Ruby expected."
+        },
+        {
+          "text": "After another eerie noise comes from the freezer, Ruby insists they finally investigate what is actually back there."
+        },
+        {
+          "text": "The new closing routine is put to the test when a last-minute customer arrives just as Ruby and Tyson are ready to leave."
+        },
+        {
+          "text": "Fox & Flour hosts a tasting of seasonal pastries, and Ruby tries to persuade Tyson to add an unexpectedly bold flavor to the menu."
+        }
+      ],
+      "substrate_summary": {
+        "episodes_used": 12,
+        "memories_used": 3,
+        "cast_count": 2
+      },
+      "generated_at": "2026-08-25T03:01:38.094800+00:00",
+      "model": "gpt-5.6-terra",
+      "cache": {
+        "hit": false,
+        "ttl_seconds": 600
+      },
+      "tokens_input": 788,
+      "tokens_output": 133,
+      "_probe_meta": {
+        "probe": "q282_2_v1_baseline",
+        "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "call_index": 2,
+        "use_cache": false,
+        "executor_sha": "8b0290d05418300314453df5b8058e2641f78bec"
+      }
+    },
+    {
+      "suggestions": [
+        {
+          "text": "Ruby and Tyson test a few mascot ideas during a busy morning, only to discover the neighborhood has very strong opinions."
+        },
+        {
+          "text": "The bakery\u2019s celebration-cake order for the neighborhood baking competition creates awkward questions about whether Fox & Flour can enter, judge, or simply stay out of it."
+        },
+        {
+          "text": "Tyson investigates a new late-night noise in the bakery and finds evidence that makes the haunting theory harder to dismiss."
+        },
+        {
+          "text": "Ruby insists on practicing the new closing routine, but Tyson realizes they have each interpreted \u201cwhat they need\u201d very differently."
+        },
+        {
+          "text": "A mystery customer asks for a pastry based on an old neighborhood recipe, sending Ruby and Tyson on a search for its missing details."
+        }
+      ],
+      "substrate_summary": {
+        "episodes_used": 12,
+        "memories_used": 3,
+        "cast_count": 2
+      },
+      "generated_at": "2026-08-25T03:01:41.604334+00:00",
+      "model": "gpt-5.6-terra",
+      "cache": {
+        "hit": false,
+        "ttl_seconds": 600
+      },
+      "tokens_input": 788,
+      "tokens_output": 141,
+      "_probe_meta": {
+        "probe": "q282_2_v1_baseline",
+        "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "call_index": 3,
+        "use_cache": false,
+        "executor_sha": "8b0290d05418300314453df5b8058e2641f78bec"
+      }
+    }
+  ]
+}

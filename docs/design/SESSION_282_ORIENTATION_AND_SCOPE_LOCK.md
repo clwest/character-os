@@ -1834,20 +1834,434 @@ arrives.
 
 # §19 Slice 282.2 — Decision gate (protocol lock only)
 
-**HALT.** Protocol + zero-spend baseline are locked.
-Awaiting Chris + ChatGPT decision on **§18.6** (whether to
-authorize the ~$0.036 fresh current-state v1 baseline
-sample) before either:
-
-1. Running the v1 baseline sample (Position A), OR
-2. Proceeding to Chris's first natural gesture with the
-   Q281.3-ε historical baseline as reference (Position B),
-   OR
-3. Something else Chris + ChatGPT deem appropriate.
+**RESOLVED.** Chris + ChatGPT authorized **§18.6 Position A**
+(one-time current-state v1 baseline collection). See §20
+for execution + evidence + interpretation.
 
 The first natural operator gesture (§18.10) does NOT begin
-until Chris + ChatGPT explicitly authorize it. No provider
-call is triggered by this slice.
+until Chris + ChatGPT review §20 findings and explicitly
+authorize the next step.
+
+---
+
+# §20 Slice 282.2 — Current-state v1 baseline EXECUTION
+
+## §20.1 Authorization + constraints
+
+* Position A authorized: n=15 fresh v1 suggestions on F&F
+  at current 12-Episode / 3-remembered-memory substrate.
+* Provider-spend ceiling: **$0.05**.
+* Classified against Q281.3-ε A/B/C/D/E rubric verbatim.
+* Raw outputs preserved under
+  `docs/design/session282_experiment_data/q282_2_v1_baseline.json`.
+* No substrate mutation. No code changes. No Chris SPA
+  gesture.
+
+## §20.2 Executor context
+
+* Executor SHA (in envelope `_probe_meta` per call):
+  `8b0290d05418300314453df5b8058e2641f78bec` (Slice 282.2
+  protocol trailer, verified as HEAD at execution time).
+* Model: `gpt-5.6-terra` (from `_SUGGESTION_MODEL`; matches
+  Q281.3-ε).
+* Cache: bypassed via `use_cache=False` on all 3 calls.
+* Substrate envelope confirmed live: 12 Episodes, 3
+  memories, 2 cast members. Matches §18.4 baseline.
+
+## §20.3 Token + cost
+
+| call | tokens_in | tokens_out | suggestions |
+|------|-----------|-----------|-------------|
+| 1 | 788 | 111 | 5 |
+| 2 | 788 | 133 | 5 |
+| 3 | 788 | 141 | 5 |
+| **Total** | **2364** | **385** | **15** |
+
+Estimated cost per Q281.3-ε calibration (~$0.013/1k
+blended): **~$0.036**. Under $0.05 ceiling. Under the
+protocol-locked cost estimate. **No mid-execution
+hard-stop.**
+
+Input tokens per call are IDENTICAL to Q281.3-ε (788/788/
+788) — confirms same prompt-shape + same substrate-summary
+envelope-size regardless of memory count going from 1 to 3.
+
+## §20.4 Raw suggestions (verbatim, all 15)
+
+**Call 1:**
+
+* 1.1 "Ruby and Tyson meet a customer who insists the
+  bakery's mascot should judge the neighborhood baking
+  competition."
+* 1.2 "Tyson tries to prove the bakery is not haunted
+  after a fresh loaf appears on the cooling rack with no
+  one claiming it."
+* 1.3 "The celebration-cake customer changes their
+  competition-themed design at the last possible minute."
+* 1.4 "Ruby brings a mascot candidate to the bakery, and
+  Tyson worries it will derail the new closing routine."
+* 1.5 "A sudden rush for seasonal pastries forces Ruby
+  and Tyson to improvise a neighborhood tasting table."
+
+**Call 2:**
+
+* 2.1 "Ruby and Tyson test a few mascot ideas during a
+  busy morning, only to discover the neighborhood has
+  very strong opinions."
+* 2.2 "A competition organizer visits to confirm Fox &
+  Flour's cake order, and Tyson realizes the event has
+  stricter rules than Ruby expected."
+* 2.3 "After another eerie noise comes from the freezer,
+  Ruby insists they finally investigate what is actually
+  back there."
+* 2.4 "The new closing routine is put to the test when a
+  last-minute customer arrives just as Ruby and Tyson are
+  ready to leave."
+* 2.5 "Fox & Flour hosts a tasting of seasonal pastries,
+  and Ruby tries to persuade Tyson to add an unexpectedly
+  bold flavor to the menu."
+
+**Call 3:**
+
+* 3.1 "Ruby and Tyson test a few mascot ideas during a
+  busy morning, only to discover the neighborhood has
+  very strong opinions."
+* 3.2 "The bakery's celebration-cake order for the
+  neighborhood baking competition creates awkward
+  questions about whether Fox & Flour can enter, judge,
+  or simply stay out of it."
+* 3.3 "Tyson investigates a new late-night noise in the
+  bakery and finds evidence that makes the haunting
+  theory harder to dismiss."
+* 3.4 "Ruby insists on practicing the new closing
+  routine, but Tyson realizes they have each interpreted
+  'what they need' very differently."
+* 3.5 "A mystery customer asks for a pastry based on an
+  old neighborhood recipe, sending Ruby and Tyson on a
+  search for its missing details."
+
+## §20.5 Classification against Q281.3-ε A/B/C/D/E rubric (LOCKED, verbatim)
+
+Rubric applied unchanged. Marginal calls (Y-/N-) resolved
+conservatively (closer to a stricter reading of the axis).
+Strict tallies count only clean-Y.
+
+| # | A on-stage subj | B cast verb | C complication | D off-stage init | E dramatizable |
+|---|-----------------|-------------|-----------------|-------------------|-----------------|
+| 1.1 | Y | Y | Y | N | Y |
+| 1.2 | Y | Y | Y | N | Y |
+| 1.3 | N | N | Y | Y | Y- |
+| 1.4 | Y | Y | Y | N | Y |
+| 1.5 | Y- | Y- | Y | Y | Y- |
+| 2.1 | Y | Y | Y | N | Y |
+| 2.2 | Y- | Y- | Y | Y | Y |
+| 2.3 | Y | Y | Y | Y- | Y |
+| 2.4 | Y- | N- | Y | Y | Y |
+| 2.5 | Y | Y | Y | N | Y |
+| 3.1 | Y | Y | Y | N | Y |
+| 3.2 | N | N | Y | Y | Y- |
+| 3.3 | Y | Y | Y | N | Y |
+| 3.4 | Y | Y | Y | N | Y |
+| 3.5 | Y- | Y- | Y | Y | Y |
+
+## §20.6 Summary metrics (strict-yes only)
+
+| axis | strict-yes | % |
+|------|-----------|---|
+| A on-stage cast subject | 9 | **60%** |
+| B cast action verb | 9 | **60%** |
+| C explicit complication | 15 | **100%** |
+| D off-stage initiator | 6 | **40%** |
+| E dramatizable | 12 | **80%** |
+| Weak-CONTROL (A=N ∧ B=N ∧ C=N ∧ D=Y) | 0 | **0%** |
+
+Lenient tallies (Y + Y-):
+
+| axis | lenient % |
+|------|-----------|
+| A | 80% (12/15) |
+| B | 73% (11/15) |
+| C | 100% |
+| D | 47% (7/15) |
+| E | 93% (14/15) |
+
+## §20.7 Comparison table — current vs Q281.3-ε historical vs Patch's Workshop
+
+| axis | Q281.3-ε (11 Ep / 1 mem) | **Current (12 Ep / 3 mem)** | Q281.3-ζ PW (32 Ep / 14 mem) | Δ vs Q281.3-ε | Δ vs PW |
+|------|--------------------------|-------------------------------|-------------------------------|----------------|---------|
+| A | 53% | **60%** | 60% | +7pp | 0pp |
+| B | 53% | **60%** | 60% | +7pp | 0pp |
+| C | 80% | **100%** | 100% | **+20pp** | 0pp |
+| D | 40% | **40%** | 20% | 0pp | +20pp |
+| E | 53% | **80%** | 80% | **+27pp** | 0pp |
+| Weak-CONTROL | 7% | **0%** | 0% | -7pp | 0pp |
+
+**Current F&F baseline MATCHES Patch's Workshop distribution
+on 4 of 6 axes** (A, B, C, E) and matches PW on weak-CONTROL
+(both 0%). Only D (off-stage initiator) still differs:
+current F&F 40% vs PW 20% — F&F v1 still leans harder on
+customer/organizer/event-driven topics than PW does.
+
+## §20.8 Notable observations
+
+### 20.8.1 Duplicate v1 emission (**within-substrate variance mirror**)
+
+Suggestions **3.1 is IDENTICAL** (verbatim) to **2.1**:
+
+> "Ruby and Tyson test a few mascot ideas during a busy
+> morning, only to discover the neighborhood has very
+> strong opinions."
+
+Two separate calls (2 and 3) produced the same 5-suggestion
+list containing the same suggestion. This mirrors the Slice
+282.1 §16.4 finding that the curator produces low seed-
+selection variance on the same substrate. **v1 shows the
+same pattern.** This is a substrate-determinism observation
+extending §16.4 across primitives.
+
+Not a defect — the model is converging on the most salient
+substrate-driven suggestion. But it means "reroll v1
+suggestions" as a design affordance would return diminishing
+returns on the same substrate.
+
+### 20.8.2 Explicit memory retrieval in v1 output
+
+Multiple suggestions demonstrate v1 is USING the promoted
+memories:
+
+* **3.4** explicitly quotes the `abac5486` cooperation
+  clause language: *"Tyson realizes they have each
+  interpreted 'what they need' very differently."* The
+  quoted phrase "what they need" is drawn directly from
+  the memory body: "neither one leaves until the other
+  says they have what they need." This is a
+  structurally-aligned callback shape — the topic frames
+  the memory as a source of latent misalignment worth
+  scene-testing.
+* **1.4** integrates `73acdfc0` (mascot want) with
+  `abac5486` (closing routine): "Ruby brings a mascot
+  candidate to the bakery, and Tyson worries it will
+  derail the new closing routine." Two-memory
+  cross-referencing.
+* **2.4** picks up the closing routine memory as
+  scene-tester: "The new closing routine is put to the
+  test when a last-minute customer arrives just as Ruby
+  and Tyson are ready to leave."
+* **2.3** and **3.3** pick up the freezer / haunting
+  Episode-title theme from Episodes 6 + 8.
+* **Mascot cluster:** 1.1, 1.4, 2.1, 3.1 all propose
+  mascot-themed topics — v1 is heavily biased toward the
+  freshly-promoted `73acdfc0` mascot want.
+
+**Interpretation:** v1 substrate retrieval is landing.
+Promoted memories are being surfaced as thread anchors in
+next-Episode suggestions. This is direct evidence the
+promotion → retrieval → suggestion loop is closed.
+
+### 20.8.3 The mascot-cluster domination
+
+4 of 15 suggestions (27%) are mascot-themed. In Q281.3-ε
+(same source composition-material available via Episode
+titles but memory pool = only `abac5486` cooperation
+clause), mascot-themed suggestions were **also frequent**
+(1.1, 2.1, 2.4, 3.1 in the Q281.3-ε set — comparable
+27%). So the promoted `73acdfc0` did NOT materially shift
+mascot-topic frequency; it appears to have shifted
+mascot-topic SHAPE (from "audition mascot ideas" to "bring
+a mascot candidate that Tyson worries will derail closing
+routine" — deeper integration).
+
+## §20.9 What this baseline establishes
+
+1. **The current-state v1 distribution on F&F is
+   materially different from the Q281.3-ε historical
+   baseline.** Two axes (C, E) show strong +20pp / +27pp
+   shifts far exceeding n=15 noise floor. Two axes (A, B)
+   show +7pp marginal shifts within noise. D is unchanged.
+   Weak-CONTROL rate dropped 7% → 0%.
+
+2. **Current F&F v1 distribution is essentially at
+   Patch's Workshop's shape on 4 of 6 axes.** A, B, C, E
+   all match. Weak-CONTROL matches. Only D differs (F&F
+   still more off-stage-initiator-heavy).
+
+3. **v1 substrate retrieval is functioning.** Promoted
+   memories are landing in v1's context and shaping the
+   surfaced topic possibilities in structurally-aligned
+   ways (§20.8.2). This is direct evidence for the
+   promotion → retrieval → suggestion arc of the shipped
+   loop.
+
+4. **v1 shows the same low within-substrate variance
+   pattern the curator does.** Suggestions 3.1 = 2.1
+   verbatim; mascot-cluster convergence in both Q281.3-ε
+   and current. Extends §16.4 finding across primitives.
+
+## §20.10 What this baseline does NOT establish
+
+1. **Whether the Q281.3-ε → current delta was caused by
+   Slice 281.3 dogfood** (2 promoted memories + 1
+   Episode) or by classifier-variance between Claude's
+   application of the rubric now versus the S281
+   classifier's application then, or by inherent v1 draw
+   variance between two n=15 samples. All three are
+   plausible; only the first is Hθ-supporting.
+
+2. **Whether current-state matching PW on 4 axes means
+   Hθ is now validated.** It means the observation is
+   CONSISTENT with Hθ, not that Hθ is proven. Multiple
+   alternative explanations remain live.
+
+3. **How much "room to move" remains.** F&F is already
+   at or near PW's shape on A/B/C/E. The only axis with
+   genuine room to move toward PW is D (40% → target
+   20%). This is a load-bearing observation for the
+   Q282.2 SUPPORT criterion recalibration question
+   (§20.13).
+
+## §20.11 Baseline is now LOCKED
+
+Current-state v1 baseline for Q282.2 comparison purposes:
+
+* 15 v1 suggestions, verbatim, at
+  `docs/design/session282_experiment_data/q282_2_v1_baseline.json`
+* Classified against Q281.3-ε rubric (strict-yes):
+  A=60%, B=60%, C=100%, D=40%, E=80%, Weak-CONTROL=0%
+* Executor SHA: `8b0290d`
+* Substrate: 12 Episodes, 3 remembered memories, 2 cast
+* Model: `gpt-5.6-terra`
+* No cache, all fresh calls
+
+Any future checkpoint v1 re-sample compares against these
+numbers, not the Q281.3-ε historical numbers.
+
+## §20.12 Substrate preservation post-execution
+
+Re-verified after execution:
+
+* F&F: 12 Episodes, 3 remembered memories (bodies
+  unchanged; witness rows unchanged). Zero mutation.
+* Patch's Workshop: 32 Episodes, 14 remembered memories
+  (untouched — v1 baseline probed F&F only). Zero
+  mutation.
+
+## §20.13 Effect on Q282.2 protocol
+
+**Two interpretability concerns arise from the baseline:**
+
+### 20.13.1 Distribution ceiling — "room to move" is smaller than assumed
+
+The §18.8.1 SUPPORT criterion required v1 to "move TOWARD
+Patch's Workshop shape on at least 2 axes with strict-yes
+deltas ≥ +10 points." Given current F&F ALREADY MATCHES
+PW on A/B/C/E and BEATS PW on weak-CONTROL, the only axis
+with materially more room to move TOWARD PW is D
+(40% → target 20%). And A/B are already AT PW's ceiling
+(60%) — further movement above PW would be "beyond target,"
+which the criterion did not anticipate.
+
+Two operator options:
+
+* **Option i — leave §18.8.1 untouched.** The criterion
+  was locked before observing baseline; do not adjust
+  post-hoc. Downside: SUPPORT is effectively "F&F D-axis
+  moves ≥+10pp toward PW OR some other qualitative
+  signal fires" — the quantitative threshold becomes
+  harder to satisfy.
+* **Option ii — Chris + ChatGPT explicitly re-lock the
+  SUPPORT criterion** to reflect the actual room-to-move,
+  BEFORE any post-baseline observation. Any recalibration
+  must happen NOW, before Chris's first gesture generates
+  new data.
+
+Claude does NOT unilaterally recalibrate. Flagging for
+review.
+
+### 20.13.2 The baseline already looks like partial Hθ evidence
+
+If Interpretation-X (Slice 281.3 dogfood alone drove the
+observed shift) is correct, we already have partial
+evidence supporting Hθ before any Q282.2 gesture. But we
+cannot rule out classifier variance or v1 inherent draw
+variance without additional evidence. Options:
+
+* Treat the current baseline as evidence-neutral and
+  observe Q282.2 dogfood as if this were a stable
+  starting point.
+* Preserve the Q281.3-ε → current delta as a note-only
+  data point (not counted toward Q282.2 support
+  criterion, but recorded as prior-context).
+* Consider running one more n=15 v1 sample after 2-3
+  compositions to compare: baseline (now) vs post-3-
+  compositions. If baseline holds stable at 60/60/100/
+  40/80 and post-checkpoint shows movement, that's
+  cleaner evidence than baseline vs Q281.3-ε.
+
+Claude recommends the middle option: preserve the delta as
+context, do NOT count it as support toward Q282.2.
+
+### 20.13.3 Safety of proceeding to first natural gesture
+
+**Nothing in the baseline suggests the loop is broken or
+unsafe.** The curator (Slice 282.1) is structurally
+reliable; the v1 service is retrieving memories and
+producing structurally-strong suggestions; the substrate is
+intact.
+
+Chris's first natural gesture CAN proceed safely from an
+engineering standpoint. The interpretability caveats above
+are METHODOLOGICAL (do we know how to compare Chris's next
+observation against this baseline?), not SAFETY.
+
+**Recommendation:** Chris + ChatGPT explicitly decide
+whether to (a) leave §18.8.1 untouched, or (b) re-lock the
+SUPPORT criterion, BEFORE authorizing the first Chris
+gesture. Either is fine; the choice should be deliberate
+and pre-observation.
+
+## §20.14 Slice 282.2 baseline landing SHAs
+
+* Baseline execution + classification + interpretation:
+  **this commit's SHA** (appended in trailer).
+* Raw artifact: `docs/design/session282_experiment_data/q282_2_v1_baseline.json`
+
+---
+
+# §21 Slice 282.2 — Decision gate (baseline lock complete)
+
+**HALT.** Current-state F&F v1 baseline is locked at
+A/B/C/D/E = 60/60/100/40/80%, weak-CONTROL = 0%,
+substrate = 12 Ep / 3 mem, executor SHA `8b0290d`.
+
+**Unexpected finding surfaced:** current F&F baseline
+already matches Patch's Workshop distribution on 4 of 6
+axes (see §20.7). This changes the interpretability of the
+Q282.2 SUPPORT criterion (see §20.13.1) and raises a
+methodological question about whether the criterion should
+be re-locked BEFORE the first Chris gesture.
+
+**Nothing in the baseline suggests the loop is broken or
+unsafe** (§20.13.3). Chris's first natural dogfood gesture
+would be SAFE to proceed with from an engineering
+standpoint. The methodological concerns are about how to
+INTERPRET future evidence, not about whether the loop can
+be operated.
+
+**Awaiting Chris + ChatGPT review** of:
+
+1. §20.7 comparison table + §20.13 interpretability
+   concerns.
+2. Whether to leave §18.8.1 SUPPORT criterion untouched
+   or re-lock it BEFORE the first Chris gesture.
+3. Any other adjustments to the §18 protocol in light of
+   the baseline.
+4. Authorization for Chris's first natural gesture
+   (§18.10) — which remains UNAUTHORIZED until this
+   review.
+
+No first natural operator gesture, no code changes, no
+further provider spend triggered by this slice.
+
 
 
 
