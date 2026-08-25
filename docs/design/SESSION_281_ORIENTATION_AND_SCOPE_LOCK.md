@@ -3281,3 +3281,525 @@ Trailer commit:                                   <appended in the same commit a
 
 **Do NOT implement any production change until Chris +
 ChatGPT review.**
+
+---
+
+# Q281.3-ζ — Patch's Workshop v1 topic-shape sampling (EXECUTED)
+
+Authorization: Chris scoped Q281.3-ζ from §Q14 as the cheapest
+follow-on data point after Q281.3-ε. Same 3× v1 probe against
+**Patch's Workshop** (`56d16b63-652e-4f54-bc7e-39114bbfc4c5`),
+same rubric, same production code, `use_cache=False` each call.
+Comparative endpoint: the 15-suggestion Fox & Flour baseline
+from §Q3.
+
+Full evidence artifact:
+`docs/design/session281_experiment_data/q281_3_zeta_patch_workshop_topic_shape_evidence.json`.
+
+Probe: executed inline via `python -c` harness (recorded in
+audit doc rather than a separate script file — same shape as
+Q281.3-ε probe, universe id swapped, one-shot). Evidence
+artifact matches Q281.3-ε shape exactly for direct diff.
+
+## §R1 Cost transparency
+
+Authorized estimate (per §P2 v1 reference + Chris's
+Q281.3-ζ authorization): **~$0.03-$0.06** for 3 calls.
+
+Actual observed:
+
+| call | tokens_in | tokens_out | elapsed | candidates |
+|------|-----------|------------|---------|------------|
+| 1    | 1660      | 143        | 4.76s   | 5          |
+| 2    | 1660      | 144        | 3.60s   | 5          |
+| 3    | 1660      | 142        | 4.96s   | 5          |
+| **Total** | **4980** | **429** | **~13s** | **15**     |
+
+Approximate blended spend (at ~$0.013/1k reference):
+**~$0.070**, ~17% above the top of the authorized $0.06
+ceiling.
+
+**Minor cost calibration finding:** Patch's Workshop has
+~2× the substrate content of Fox & Flour (32 Episodes vs
+11; 14 memories vs 4). Per-call input tokens
+correspondingly ~2× (1660 vs 788). The §P2 v1 rule
+("~$0.005-$0.02 per call") was calibrated against SESSION
+280 §11.3's range which spanned 10-32 Episodes; the top of
+that range is the ~$0.02 case, which is where Patch's
+Workshop landed. Per-call spend is inside §P2 but the total-
+for-3-calls estimate needed the top-of-range assumption for
+rich substrates. Recorded so future v1-scale probes against
+rich-substrate Universes account for this.
+
+Not a §P-class overrun — same order of magnitude, ~17% over
+top-end. No fresh durable lesson needed.
+
+## §R2 Patch's Workshop substrate held constant
+
+* Universe: Patch' Workshop (`56d16b63-…`)
+* Cast: Rivet (robotic assistant), Patch (AI experimentation
+  spokesperson) — 2 members, same-count as Fox & Flour
+* 32 non-archived Episodes (vs Fox & Flour's 11)
+* 14 REMEMBERED memories (vs Fox & Flour's 4; all
+  `kind=event`, `weight=peripheral`; several with
+  `witnessed_by=[Rivet]` or `[Patch]` for asymmetric-
+  knowledge shape)
+* Universe.brief: **empty** (vs Fox & Flour's paragraph)
+* Cast business briefs describe **experimental behavior**
+  ("Patch builds strange things to find out whether they
+  work"; "Rivet helps him build them, test them, measure
+  what happened") vs Fox & Flour's service framing
+  ("Helps customers choose what fits the occasion")
+* v1 service prompt: **identical** — same production code
+  fires against both Universes
+
+## §R3 15 sampled Patch's Workshop suggestions — verbatim
+
+**Call 1:**
+
+* 1.1 "Patch presses the forbidden button, and Rivet insists
+  they document what it was connected to before either of
+  them touches anything else."
+* 1.2 "Rivet finally tells Patch about the PATCH OVERRIDES
+  folder, forcing them to decide whether the Agent has been
+  quietly keeping score."
+* 1.3 "The workshop mascot begins receiving messages from
+  the helper system and develops opinions Patch definitely
+  did not program into it."
+* 1.4 "Patch asks the Agent to explain its project
+  priorities by giving it a single controlled question, but
+  its answer raises more questions about what it knows."
+* 1.5 "A pigeon starts visiting the workshop with a piece of
+  wire tied to its leg, giving Patch evidence for his theory
+  and Rivet a very reluctant investigation."
+
+**Call 2:**
+
+* 2.1 "Rivet finally tells Patch about the PATCH OVERRIDES
+  folder, and Patch wants to know whether the Agent has been
+  keeping score for a reason."
+* 2.2 "Patch discovers that the workshop agent's one
+  permitted decision has somehow turned into a carefully
+  argued case for being allowed a second one."
+* 2.3 "The unexplained box begins making a sound at regular
+  intervals, forcing Patch to admit only part of what he
+  remembers about building it."
+* 2.4 "Patch presses the button Rivet warned him about, and
+  the workshop mascot suddenly develops an opinion about
+  safety rules."
+* 2.5 "A pigeon starts leaving small pieces of wire on the
+  workshop windowsill, giving Patch evidence for his theory
+  and Rivet a new nuisance to measure."
+
+**Call 3:**
+
+* 3.1 "Patch presses the forbidden button, and Rivet must
+  determine whether its alarming consequences are real or
+  merely an elaborate workshop prank."
+* 3.2 "Rivet finally tells Patch about the PATCH OVERRIDES
+  folder, forcing them to decide whether the Agent has been
+  keeping records or building a case."
+* 3.3 "The workshop agent uses its one permitted decision to
+  choose a project neither Patch nor Rivet remembers giving
+  it access to."
+* 3.4 "Patch tries to audit the Agent's priorities by asking
+  it to explain what makes a project 'necessary,' with
+  predictably unhelpful answers."
+* 3.5 "A pigeon begins leaving objects outside the workshop,
+  giving Patch what he considers evidence and Rivet what he
+  considers a new problem."
+
+## §R4 Classification table (same A/B/C/D/E rubric)
+
+| #    | A on-stage cast subject | B cast action verb | C explicit complication | D off-stage initiator | E dramatizable |
+|------|-------------------------|--------------------|--------------------------|-----------------------|-----------------|
+| 1.1  | Y                       | Y                  | Y                        | N                     | Y               |
+| 1.2  | Y                       | Y                  | Y                        | N                     | Y               |
+| 1.3  | N                       | N                  | Y                        | Y                     | Y-              |
+| 1.4  | Y                       | Y                  | Y                        | N                     | Y               |
+| 1.5  | N                       | N                  | Y                        | Y                     | Y-              |
+| 2.1  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.2  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.3  | N                       | N                  | Y                        | Y                     | Y-              |
+| 2.4  | Y                       | Y                  | Y                        | N                     | Y               |
+| 2.5  | N                       | N                  | Y                        | Y                     | Y-              |
+| 3.1  | Y                       | Y                  | Y                        | N                     | Y               |
+| 3.2  | Y                       | Y                  | Y                        | N                     | Y               |
+| 3.3  | N                       | N                  | Y                        | Y                     | Y-              |
+| 3.4  | Y                       | Y                  | Y                        | N                     | Y               |
+| 3.5  | N                       | N                  | Y                        | Y                     | Y-              |
+
+Same coding conventions as §Q4 (`Y-` = marginal, counted as
+NO for strict tallies).
+
+## §R5 Patch's Workshop summary metrics (strict-yes)
+
+| axis                                            | strict-yes count | %       |
+|-------------------------------------------------|------------------|---------|
+| A — on-stage cast subject                        | 9                | **60%** |
+| B — cast action verb                             | 9                | **60%** |
+| C — explicit complication                        | 15               | **100%** |
+| D — off-stage initiating actor                   | 6                | **40%** |
+| E — dramatizable without reinterpretation        | 9                | **60%** |
+
+Combinations:
+
+| combination                                                              | count | %       |
+|--------------------------------------------------------------------------|-------|---------|
+| A AND B AND C — strong shape                                              | 9     | **60%** |
+| D AND C — mixed off-stage-with-complication                               | 6     | **40%** |
+| D AND NOT C — weak CONTROL-shape signature                                | **0** | **0%**  |
+| A AND B AND C AND E — fully event-shape                                    | 9     | 60%     |
+| ORIG's exact 5-axis signature (D AND NOT A AND NOT B AND NOT C AND NOT E)  | **0** | **0%**  |
+
+## §R6 Side-by-side comparison — Fox & Flour vs Patch's Workshop
+
+| axis / combination                                            | Fox & Flour (§Q5) | Patch's Workshop (§R5) | delta       |
+|---------------------------------------------------------------|-------------------|-------------------------|-------------|
+| A on-stage cast subject                                        | 53%               | 60%                     | +7 pts      |
+| B cast action verb                                             | 53%               | 60%                     | +7 pts      |
+| **C explicit complication**                                    | **80%**           | **100%**                | **+20 pts** |
+| D off-stage initiating actor                                   | 40%               | 40%                     | (equal)     |
+| E dramatizable without reinterpretation                        | 53%               | 60%                     | +7 pts      |
+| A+B+C strong shape                                             | 53%               | 60%                     | +7 pts      |
+| D+C mixed shape                                                | 27%               | **40%**                 | +13 pts     |
+| D + NOT C weak-CONTROL signature                               | 7%                | **0%**                  | -7 pts      |
+| ORIG-exact signature                                           | 7%                | **0%**                  | -7 pts      |
+
+**Direct qualitative observations** (both samples n=15):
+
+* Complication rate is meaningfully higher on Patch's
+  Workshop — **every single suggestion has an explicit
+  complication word/phrase** vs 80% on Fox & Flour. Multiple
+  suggestions carry "forcing them to decide," "somehow
+  turned into," "raises more questions," "with predictably
+  unhelpful answers," "elaborate workshop prank."
+* **Zero weak-CONTROL topics on Patch's Workshop** — no
+  "regular customer asks…"-shape flabby premise. Fox &
+  Flour produced 1/15 (2.5).
+* Every off-stage-initiator suggestion on Patch's Workshop
+  STILL has an explicit complication. On Fox & Flour, 1 of
+  6 off-stage-initiator suggestions had no complication
+  (2.5). Delta: Patch's off-stage-initiator suggestions are
+  100% D+C; Fox & Flour's are 67% D+C.
+* On-stage cast subject fraction: 60% vs 53% — a real but
+  smaller delta than the C-axis. Both Universes still
+  produce ~40% off-stage-initiator topics.
+
+**Callback / continuity qualitative observations** (Chris
+authorized observational-only; NOT reopening deferred
+epistemic-asymmetry work):
+
+Patch's Workshop suggestions naturally express:
+* **Consequences of prior events** — 5 of 15 explicitly
+  build on named prior threads: PATCH OVERRIDES folder
+  (1.2, 2.1, 3.2), Agent's one permitted decision (1.4,
+  2.2, 3.3, 3.4), forbidden button (1.1, 2.4, 3.1),
+  unexplained box (2.3), pigeon theory (1.5, 2.5, 3.5),
+  workshop mascot (1.3, 2.4).
+* **Unresolved character tension** — "Rivet finally tells
+  Patch" appears 3× as a beat (1.2, 2.1, 3.2), building on
+  the SESSION 279-280 finding that Rivet chose not to tell
+  Patch about PATCH OVERRIDES.
+* **Callbacks** — dense across the sample; each generation
+  reuses named prior artifacts.
+* **Discoveries** — 2.2 ("Patch discovers"), 2.3 ("forcing
+  Patch to admit"), 3.3 ("neither Patch nor Rivet remembers
+  giving it access to").
+* **Secrets / asymmetric knowledge** — the PATCH OVERRIDES
+  Rivet-private thread is a natural gravity well for
+  suggestions. The "unexplained box" (2.3) is a Patch-
+  private thread.
+* **Character-driven actions** — Patch and Rivet are
+  grammatical subjects in most suggestions; the exceptions
+  are the workshop mascot / box / pigeon which are still
+  named recurring artifacts, not generic customers.
+
+Fox & Flour's callbacks in Q281.3-ε were mostly **lexical
+adjacency** (celebration cake / neighborhood / competition
+appear as topic overlaps, not character-driven arc
+extensions). The one clear character-driven callback thread
+(mascot idea) recurred in ~3-4 of 15 suggestions vs Patch's
+Workshop's ~10-15 suggestions building on named continuity
+threads.
+
+## §R7 Q281.3-ζ verdict
+
+**Distribution is substrate-sensitive, not generator-
+stable.** Patch's Workshop produces a materially stronger
+topic-shape distribution than Fox & Flour under the same
+production generator. The biggest deltas:
+
+* **C (complication): +20 pts** (100% vs 80%).
+* **D+C mixed: +13 pts** (40% vs 27%; because Patch's
+  off-stage-initiator suggestions are 100% D+C, not F&F's
+  67%).
+* **Weak-CONTROL: -7 pts** (0% vs 7%).
+* **Callback / continuity quality**: dense character-driven
+  named-thread callbacks vs sparse lexical adjacency.
+
+The `565cd8c8` failure shape (ORIG's exact 5-axis
+signature) has **zero occurrences in the 15-sample Patch's
+Workshop draw**. On Fox & Flour it recurs ~1/15.
+
+## §R8 What substrate characteristics plausibly explain the difference?
+
+Distinguishing evidence from hypothesis:
+
+**Evidence (directly observable in substrate):**
+
+1. **Episode-title grammar** — Patch's Workshop titles are
+   heavy on cast-verb structure ("Patch decides X", "Rivet
+   finds Y", "Patch tells Rivet Z"). Fox & Flour Episode
+   titles are sparser and topic-shaped ("Ruby finds
+   something strange in the freezer", "Tyson is convinced
+   the bakery is haunted"). Both use cast verbs but Patch's
+   titles are longer + more action-shaped.
+2. **Memory volume** — 14 vs 4 (3.5×). More memory content
+   in the prompt means more named continuity threads for
+   the generator to riff on.
+3. **Memory body grammar** — all 14 Patch memories are
+   `kind=event` with character-attributed narrative bodies
+   ("Patch built X"; "Rivet has come to believe Y"; "The
+   workshop agent began Z"). Fox & Flour's 4 memories are
+   also event/promise-shaped but shorter and less
+   character-attributed.
+4. **Cast business-brief framing** — Patch's briefs describe
+   experimental behavior ("Patch builds strange things to
+   find out whether they work"; "Rivet helps him build,
+   test, measure"). Fox & Flour's briefs describe customer-
+   service roles ("Helps customers choose what fits the
+   occasion without overcomplicating it").
+5. **Universe.brief presence** — Fox & Flour has a paragraph
+   framing the bakery as a "warm neighborhood gathering
+   place." Patch's Workshop's is empty. Counterintuitively,
+   the empty brief may HELP because it removes a soft
+   customer-service framing pressure.
+
+**Hypothesis (not directly proven by this probe):**
+
+* The dominant driver is likely the combination of memory
+  body grammar (character-attributed events) + episode-
+  title grammar (cast-verb) + business-brief framing
+  (experimental vs service). These three combine to prime
+  the generator toward cast-verb suggestions.
+* Memory volume alone is probably not sufficient — 14
+  memories all in the "customer wanted this" shape wouldn't
+  produce Patch's distribution. Memory SHAPE matters more
+  than count.
+* Universe.brief absence is probably a modest positive but
+  unproven — an ablation probe (F&F with brief cleared)
+  would isolate.
+
+None of these hypotheses are actionable without further
+probing. Recorded for durability.
+
+## §R9 Effect on Hβ (v1 topic-grammar contract)
+
+**Hβ significantly weakened as a global fix.**
+
+The Q281.3-ε reading was "the generator has no dramatizability
+requirement, so it produces mixed output." The Q281.3-ζ
+reading is more precise: **the generator's output quality
+tracks the input substrate's shape.** Given a rich, character-
+attributed, event-shaped substrate (Patch's Workshop), it
+produces near-uniformly strong-shape suggestions with 100%
+complication. Given a thin, service-framed substrate (Fox &
+Flour), it produces a mixed distribution including occasional
+worst-case topics.
+
+Two implications:
+
+* **Hβ-strict** (v1 prompt requires A+B+C on every
+  suggestion) would probably not measurably change Patch's
+  Workshop output (already 60% strict-strong, 100%
+  complication). It would help Fox & Flour but might
+  suppress the legitimate 27% mixed-shape variety.
+* **Hβ-permissive** (soft preference for dramatizable
+  shape) same weak effect on rich substrates; helpful on
+  thin substrates.
+
+**A cleaner fix candidate emerges from Q281.3-ζ evidence:**
+
+* **Hθ (new hypothesis, from Q281.3-ζ):** the failure
+  signal is upstream of the generator. Fixing the generator
+  prompt papers over a **substrate quality** issue. The
+  correct product response may be to give operators a way
+  to enrich thin substrates — either via curator (which
+  Slice 281.2 already ships) or via first-Episode substrate
+  guidance during Universe creation.
+* **Hι (new hypothesis, from Q281.3-ζ):** the v1 generator
+  prompt could take Universe-substrate quality into account
+  and shift shape prescriptions based on substrate density
+  ("if past events are rich and character-driven, prefer
+  callback shapes; if past events are thin or service-
+  shaped, prefer inventing on-stage complications from
+  scratch"). More complex to implement, more targeted
+  effect.
+
+## §R10 Effect on Hη (SPA-side rewrite affordance)
+
+**Hη modestly strengthened.** On a thin-substrate Universe
+like Fox & Flour where ~7% of suggestions are worst-case
+and ~40% carry meaningful risk, a SPA-side "make it more
+scene-shaped" affordance would provide a floor guarantee
+without generator changes. On a rich-substrate Universe like
+Patch's Workshop where 0% are worst-case, the affordance
+would rarely be needed.
+
+Hη fits the substrate-conditional nature of the failure well
+— it activates when needed and stays out of the way
+otherwise. But it's a more expensive product decision than
+either Hβ variant because it requires SPA UX design + a
+new LLM call scale for the rewrite.
+
+## §R11 What is PROVEN (post-Q281.3-ζ)
+
+* v1 generator's output-quality distribution is substrate-
+  sensitive, not generator-stable. n=15 per Universe;
+  differences beyond plausible sampling noise on the C-axis
+  (+20 pts) and weak-CONTROL rate (0% vs 7%).
+* Patch's Workshop produces 100% explicit-complication
+  suggestions vs Fox & Flour's 80%.
+* The ORIG failure-shape signature (5/5 axes CONTROL) has
+  zero occurrences in the 15-sample Patch's Workshop draw
+  vs 1/15 on Fox & Flour.
+* Patch's Workshop suggestions build densely on named
+  continuity threads (PATCH OVERRIDES, forbidden button,
+  Agent's permitted decision, pigeon theory, unexplained
+  box, workshop mascot). Fox & Flour's rely more on
+  lexical adjacency callbacks.
+* Zero DB mutations. Patch's Workshop substrate + all
+  memories unchanged.
+
+## §R12 What remains AMBIGUOUS
+
+* **Whether the substrate-quality delta reproduces at higher
+  n.** 15 vs 15 is enough for the biggest deltas (C: +20
+  pts, weak-CONTROL: -7 pts) to be extra-noise-plausible;
+  the +7-pt deltas on A / B / E are within plausible
+  sampling variance.
+* **Whether Patch's Workshop's rich substrate would
+  actually produce strong dialogue_scene execution
+  downstream.** Q281.3-α proved topic grammar drives
+  execution on Fox & Flour with the mascot memory in the
+  substrate. Patch's Workshop synthesis has not been
+  paired-probed. **A Patch's Workshop D+C mixed-shape
+  suggestion synthesized against `dialogue_scene` could
+  either preserve the strong shape (proving Hβ is not
+  needed even for mixed-shape topics on rich substrate) OR
+  still collapse to discussion (proving the primitive-
+  impedance issue is real even on rich substrate).**
+* **Whether Fox & Flour with additional promoted memories
+  would produce a distribution closer to Patch's Workshop.**
+  Not tested. Would require operator work.
+* **Which specific substrate axis (Universe.brief presence,
+  business-brief framing, episode-title grammar, memory
+  volume, memory shape) is the dominant driver.** Multi-
+  arm ablation probes could isolate; not run.
+
+## §R13 Updated fix-shaped hypothesis ledger
+
+| ID | Hypothesis                                                | Post-Q281.3-ζ verdict                                                                      |
+|----|-----------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Hα | dialogue_scene wrong primitive for off-stage topics       | Still weakened (§O13). Q281.3-ζ doesn't change.                                             |
+| Hβ-strict | v1 prompt requires A+B+C on every suggestion       | **Significantly weakened.** Patch's Workshop already at 60% strict strong / 100% complication without any prompt change. Would suppress variety more than fix root cause. |
+| Hβ-permissive | v1 prompt adds soft preference for dramatizable   | **Modestly weakened.** Helps thin substrates like F&F; nearly no-op on rich substrates.     |
+| Hγ | memory-framing wording (§N6.2 imperative "Use them")      | Still deferred.                                                                             |
+| Hδ | memory-framing "Use them" → "may cite"                    | Still deferred.                                                                             |
+| Hε | `top_k=0` default for memory retrieval                    | Still undesirable.                                                                          |
+| Hζ | threshold retrieval vs top-k                              | Still valid, lower priority.                                                                |
+| Hη | SPA-side rewrite affordance on operator pick              | **Modestly strengthened.** Fits substrate-conditional nature of failure. Activates on thin substrates. |
+| **Hθ** (new) | **Substrate quality is the root cause; generator prompt papers over it** | **NEW hypothesis from Q281.3-ζ.** Proposes the product response should target substrate enrichment rather than generator prompt changes. |
+| **Hι** (new) | **v1 prompt takes Universe-substrate quality into account and shifts shape prescriptions** | **NEW hypothesis from Q281.3-ζ.** More complex to implement, more targeted effect.        |
+
+## §R14 Smallest next falsifiable question
+
+**Recommendation: Q281.3-ξ — paired dialogue_scene synthesis
+on Patch's Workshop with a MIXED-shape (D+C) suggestion, to
+test whether the primitive-impedance issue reproduces on
+rich substrate.**
+
+Design:
+
+* Pick the strongest-looking mixed-shape (D+C) Patch's
+  Workshop suggestion from the §R3 sample. Candidate: 2.3
+  "The unexplained box begins making a sound at regular
+  intervals, forcing Patch to admit only part of what he
+  remembers about building it." (off-stage subject + strong
+  complication + secret Patch has to admit)
+* Fire one dialogue_scene synthesis against Patch's
+  Workshop with that topic verbatim, 90s target, all other
+  parameters matching Q281.3-α CONTROL/TREATMENT runs.
+* Classify the resulting dialogue on the same axes
+  Q281.3-α used (§O8): event on-stage? state change?
+  procedural turn count? Q→A→advice collapse?
+* Compare against both Q281.3-α specimens (CONTROL:
+  procedural, TREATMENT: event).
+
+Falsifiable outcomes:
+
+* **If the Patch's Workshop D+C topic produces an event-
+  shaped scene** → primitive-impedance issue is
+  substrate-conditional; rich substrates protect against
+  it even for off-stage-initiator topics. Hβ is
+  weakened further. Hθ (substrate quality is the fix
+  target) is strengthened.
+* **If the Patch's Workshop D+C topic collapses to
+  discussion** → primitive-impedance is real even on rich
+  substrate. Hβ-permissive is strengthened as a floor
+  guarantee across all substrates.
+
+**Cost**: single dialogue_scene synthesis at Patch's
+Workshop scale. Per §P2, dialogue_scene input is ~7000-9500
+tokens; Patch's Workshop's larger substrate might push it
+higher (~11k?). Estimate: **~$0.10-$0.15 for one arm** (no
+paired CONTROL/TREATMENT needed because we already have
+Q281.3-α's specimens to compare against). Chris + ChatGPT
+to explicitly authorize the spend at correct order-of-
+magnitude per §P.
+
+**Alternative if the ~$0.10-$0.15 spend is not authorized:**
+defer Q281.3-ξ and go straight to a design-only decision on
+Hβ vs Hη vs Hθ. Costs $0.00 but proceeds without the
+primitive-impedance-on-rich-substrate data point.
+
+Q281.3-β (memory-presence pressure) still deferred per
+Chris's Q281.3-ε authorization.
+
+## §R15 Q281.3-ζ landing SHA
+
+```
+Probe evidence + audit doc landing SHA: <filled on next commit>
+Trailer commit:                          <filled on next commit>
+```
+
+## §R16 Q281.3-ζ decision gate
+
+**Awaiting Chris + ChatGPT review.**
+
+1. Patch's Workshop produces measurably stronger topic-shape
+   distribution than Fox & Flour under the same v1
+   generator. Biggest deltas: +20 pts complication, -7 pts
+   weak-CONTROL, dense character-driven callbacks vs sparse
+   lexical adjacency.
+2. v1 output is substrate-sensitive, not generator-stable.
+3. Two new hypotheses (Hθ substrate quality is root cause;
+   Hι generator prompt takes substrate quality into
+   account) emerge from the paired comparison.
+4. Hβ-strict significantly weakened; Hβ-permissive
+   modestly weakened; Hη modestly strengthened.
+5. Cost: ~$0.070, ~17% above the top of authorized
+   $0.03-$0.06 window (Patch's Workshop substrate is ~2×
+   Fox & Flour size → per-call token ~2×). Not a §P-class
+   overrun; noted for future rich-substrate v1 probes.
+6. Recommended next probe: **Q281.3-ξ**, single
+   dialogue_scene synthesis on a Patch's Workshop D+C
+   mixed-shape topic to test whether primitive-impedance
+   issue reproduces on rich substrate. Cost estimate at
+   correct §P2 magnitude: ~$0.10-$0.15.
+7. Alternative: defer Q281.3-ξ, go to design-only
+   decision on Hβ vs Hη vs Hθ. $0.00.
+
+**Do NOT implement any production change until Chris +
+ChatGPT review.**
