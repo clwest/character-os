@@ -1606,8 +1606,8 @@ opportunistically.
 ## §M13 Slice 281.2 landing SHAs
 
 ```
-Slice 281.2 primary landing SHA:  <filled in on next commit>
-Slice 281.2 SHA-trailer commit:   <filled in on next commit>
+Slice 281.2 primary landing SHA:  c394a89
+Slice 281.2 SHA-trailer commit:   <appended in the same commit as this update>
 ```
 
 ## §M14 Slice 281.2 decision gate
