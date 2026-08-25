@@ -1266,4 +1266,586 @@ scope-lock.
   EXECUTED — curator-loop robustness`
 * Trailer (this commit) records the landing SHAs above.
 
+---
+
+# §18 Slice 282.2 — Longitudinal organic-growth dogfood (PROTOCOL + BASELINE LOCK)
+
+## §18.1 Authorization
+
+Chris + ChatGPT accepted Slice 282.1 as **PASS with §16.4
+caveat** and authorized Slice 282.2 as **protocol design +
+current-state baseline lock ONLY**. No new composition. No
+Chris SPA gesture yet. No provider spend without explicit
+re-authorization.
+
+The seed-selection-variance observation (§16.4) is preserved
+as an open question; no investigation or curator-side fix
+this slice.
+
+## §18.2 The product question (verbatim)
+
+**Q282.2:** When Chris uses Character OS normally on a young
+Universe — making stories and explicitly remembering only
+what he genuinely believes should matter later — does the
+Universe's future-story behavior become richer over time
+without requiring him to think about narrative mechanics?
+
+This is an operator longitudinal dogfood question, not a
+synthetic content-generation exercise.
+
+## §18.3 Load-bearing operator constraint
+
+Chris uses the product naturally. **No prescription** of
+story topics, narrative shapes, memory choices, tension,
+callbacks, character arcs, or any other operator behavior.
+
+Chris:
+
+* chooses stories because he wants to make them,
+* judges curator cards as an operator,
+* promotes something only when he genuinely thinks it
+  should matter later,
+* rejects / skips / edits according to his own judgment,
+* never promotes something merely because it might help
+  the experiment.
+
+The observation layer never leaks classification vocabulary,
+rubric labels, or shape criteria into the SPA or operator
+workflow. Any operator-facing surface remains under SESSION
+281 §M4 vocabulary discipline.
+
+**The operator makes stories. The research layer observes.**
+
+## §18.4 Current Fox & Flour BASELINE (LOCKED — zero-spend components)
+
+All values captured from the live DB at HEAD (post Slice
+282.1) via read-only ORM query. No mutation.
+
+### 18.4.1 Universe fixture
+
+* Universe id: `1a0af807-dd6a-47cd-bfaa-3d088f1c105f`
+* Name: **Fox & Flour Bakery**
+* `brief` (331 chars, verbatim):
+
+  > "Fox & Flour Bakery is a warm neighborhood artisan
+  > bakery built around small-batch baking, naturally
+  > leavened sourdough, handcrafted pastries, seasonal
+  > desserts, and celebration cakes. It aims to feel like
+  > a familiar neighborhood gathering place where careful
+  > craft and quality ingredients matter more than speed
+  > or mass production."
+
+### 18.4.2 Cast fixture
+
+* **Ruby** — owner-framed business_brief (service framing:
+  "Ruby owns Fox & Flour Bakery, a neighborhood artisan
+  bakery known for naturally leavened sourdough…").
+  `personality_prefix=None`, `tone=None`.
+* **Tyson** — counter/coffee-side framing ("Works alongside
+  Ruby at Fox & Flour Bakery and focuses on the coffee-and-
+  counter side of the shop…"). `personality_prefix=None`,
+  `tone=None`.
+
+These identities are LOCKED — SESSION 282 must not modify
+Ruby or Tyson.
+
+### 18.4.3 Episodes (12, in creation order)
+
+| # | id | created | title / op_topic (short) |
+|---|-----|---------|-------------------------|
+| 1 | `77b04b6b` | 2026-08-20T23:16 | "Why our sourdough takes its time" |
+| 2 | `d17297a3` | 2026-08-21T00:57 | "Our celebration cakes" |
+| 3 | `a015128e` | 2026-08-23T21:20 | "Welcome to Fox & Flour Bakery" |
+| 4 | `350a8c14` | 2026-08-23T23:20 | "Ruby and Tyson deal with a difficult bakery customer." |
+| 5 | `49ead0ac` | 2026-08-23T23:40 | "Ruby thinks the bakery needs a mascot." |
+| 6 | `2e58568a` | 2026-08-24T00:04 | "Tyson is convinced the bakery is haunted." |
+| 7 | `b652a31e` | 2026-08-24T01:21 | "Ruby thinks Tyson is taking coffee too seriously." |
+| 8 | `07cacf51` | 2026-08-24T01:52 | "Ruby finds something strange in the bakery freezer." |
+| 9 | `ebd099c6` | 2026-08-24T02:15 | "Tyson thinks Ruby secretly entered them in a baking competition." |
+| 10 | `d684332f` | 2026-08-24T03:57 | "Ruby locks herself out of the bakery." |
+| 11 | `eb47350e` | 2026-08-24T21:54 | "After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it." |
+| 12 | `f4faa13b` | 2026-08-25T00:57 | "A customer asks Fox & Flour to create a celebration cake for an event tied to the neighborhood baking competition." |
+
+**Episode-title grammar audit** (against Q281.3-α axes A/B/C/D):
+
+* On-stage cast subject (A=Y): 5-8 (episodes 4, 5, 6, 7, 8,
+  9, 10, 11) — mixed.
+* Off-stage initiator (D=Y): 1, 2, 3, 12 (4 of 12).
+* Cast-verb (B=Y) rate: same 5-8, mixed with declarative-
+  attribute titles (episodes 1-3).
+* Explicit complication (C=Y): 4, 5, 6, 7, 8, 9, 10, 11,
+  12 (9 of 12).
+
+Compared to Patch's Workshop (heavy cast-verb "Patch decides
+X" / "Rivet finds Y" grammar per S281 handoff §7), F&F's
+grammar is mixed — 4 declarative-attribute titles ("Welcome
+to…", "Why our sourdough…", "Our celebration cakes"), 4
+off-stage-initiator titles, 4 on-stage-cast-verb titles with
+complication.
+
+### 18.4.4 Compositions (14 completed, in creation order)
+
+Episode 7 (`b652a31e`) has two compositions (`d7549fc1`,
+`488c37ba`), and Episode 9 (`ebd099c6`) has two
+(`7177b0f5`, `699916a9`). All others are 1:1 with their
+Episode.
+
+`brief_len` range: 1243–1893 chars. Median ≈ 1750.
+
+Canonical specimens (LOCKED per S281 §U8):
+
+* `772e9012` (Ep 11) — strong-execution reference (SESSION
+  280 Q280.6/7/8/9 primary specimen; Slice 281.3 dogfood
+  source; Slice 282.1 Probe A source). **Preserve.**
+* `565cd8c8` (Ep 12) — weak-execution specimen (Slice
+  281.3 dogfood target; Chris rejected all 3 curator
+  cards). **Preserve.**
+
+### 18.4.5 Remembered memories (3 rows, LOCKED)
+
+| id | kind | created | source_composition | witnesses (DB) | body |
+|----|------|---------|--------------------|-----------------| -----|
+| `abac5486` | `event` | 2026-08-24T22:30 | `772e9012` | ['Tyson','Ruby'] | "Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need." |
+| `fa35eb8f` | `dialogue_callback` | 2026-08-24T23:23 | `772e9012` | ['Tyson','Ruby'] | "Tyson joked that the mascot might be left inside doing community outreach after closing." |
+| `73acdfc0` | `event` | 2026-08-25T00:56 | `772e9012` | [] | "Ruby still wants Fox & Flour to have a welcoming mascot for the neighborhood." |
+
+**Witness note (methodological):** The S281 §U8 handoff
+described all three as `witnesses=[]`. DB truth: the first
+two carry explicit `['Tyson','Ruby']` witness rows; only
+`73acdfc0` (the Slice 281.2 UI-promoted one, which POSTs
+`witnessed_by:[]`) is empty. All three are semantically
+whole-cast-eligible for retrieval given F&F is a 2-cast
+Universe (the retrieval predicate at
+`shell/apps/embeddings/retrieval.py:499-543` treats
+2-witness-list matching whole cast identically to empty
+list). No behavior difference; recorded for baseline
+completeness.
+
+All three: `status=remembered`, `archived_at=NULL`,
+`source_composition=772e9012`. **The entire F&F memory
+substrate comes from ONE composition.** This is a
+non-trivial fact for the Q282.2 test: substrate diversity
+starts at zero.
+
+### 18.4.6 Prior v1 distribution reference (Q281.3-ε, historical)
+
+The Q281.3-ε baseline (SESSION 281 §Q3-§Q5) was collected
+at F&F state = 11 Episodes, 1 remembered memory
+(`abac5486` only — this was PRE-Slice-281.3 dogfood).
+
+Recorded results (n=15 v1 samples):
+
+| axis | strict-yes | % |
+|------|-----------|---|
+| A on-stage cast subject | 8 | 53% |
+| B cast action verb | 8 | 53% |
+| C explicit complication | 12 | 80% |
+| D off-stage initiator | 6 | 40% |
+| E dramatizable | 8 | 53% |
+
+Weak-CONTROL rate (topics that miss A+B+C AND are
+off-stage-initiator D=Y with no complication): 1/15 = 7%
+(sample #2.5 was the archetypal weak-CONTROL row).
+
+Patch's Workshop comparison at 32 Ep / 14 mem
+(Q281.3-ζ, §S281 §R5):
+
+| axis | PW strict-yes | % |
+|------|--------------|---|
+| A | 9 | 60% |
+| B | 9 | 60% |
+| C | 15 | 100% |
+| D | 3 | 20% |
+| E | 12 | 80% |
+Weak-CONTROL: 0/15 = 0%.
+
+**These are the reference distributions. The Q282.2
+question is whether F&F, over N additional operator-driven
+compositions with organic curator promotion, moves toward
+PW's shape.**
+
+### 18.4.7 Current-state v1 baseline STATUS
+
+**Not yet sampled at current state.** The Q281.3-ε baseline
+above is from a MATERIALLY DIFFERENT substrate: 11 Ep / 1
+mem vs current 12 Ep / 3 mem (two new memories from Chris's
+Slice 281.3 dogfood — `fa35eb8f` and `73acdfc0`).
+
+Whether a fresh v1 baseline sample is required at
+current-state is discussed in §18.6.
+
+## §18.5 Observation-axis separation (LOCKED)
+
+Q282.2 evidence must be captured under FIVE independent
+axes so downstream interpretation can decompose signal
+correctly. Do not conflate.
+
+### 18.5.1 Operator behavior (Chris's gestures)
+
+Captured after each Chris interaction, from DB + Chris's
+verbatim notes:
+
+* Topic origin: freeform typed OR picked from v1
+  next-Episode suggestions OR arrived at some other way.
+  If picked from v1, WHICH suggestion (verbatim + index).
+* Episode + composition ids created.
+* Curator card gestures per composition:
+  * n candidates shown
+  * n promoted via `[Remember this]` (bodies + resulting
+    NarrativeMemory ids)
+  * n edited-then-promoted (before/after bodies +
+    resulting NarrativeMemory ids)
+  * n skipped
+* Manual textarea use: bodies of any manually-typed
+  memories.
+* Verbatim operator judgment (subjective): what Chris
+  thought of the story, whether it felt richer/same/worse,
+  free-form. Captured with as much fidelity as Chris cares
+  to give.
+
+### 18.5.2 Curator behavior
+
+Captured from the API envelope Chris's SPA fetched OR by
+a subsequent (cached-hit) probe re-fetch after the fact:
+
+* Full envelope: candidates, `substrate_summary`, tokens,
+  cache hit/miss, model, generated_at.
+* Per-candidate classification against §13.3 rubric
+  (CHAR-ATTRIB, STORY-STATE, PARAPHRASE, PRESERVES,
+  OP-PLAUSIBILITY, GRAVITY, DUP-vs-existing-mems).
+* Note: curator's original SPA call is cached 30 min. If
+  Chris moves through the flow within window, we can
+  reconstruct the envelope from the same cache key; else
+  the light-touch classifier reads the promoted / skipped
+  bodies from Chris's report and infers what shape the
+  curator emitted.
+
+### 18.5.3 Memory accumulation (result)
+
+Captured from DB after each Chris interaction:
+
+* Count of REMEMBERED memories in F&F (delta from baseline).
+* Per new memory: id, kind (backend default vs operator
+  edit), source_composition, witnesses, body.
+* Cumulative kind distribution (event / dialogue_callback /
+  promise / world_detail / action).
+* Cumulative memory-shape summary: character-attributed
+  count, event-shaped count, tension-shaped count.
+
+### 18.5.4 v1 next-Episode suggestion behavior
+
+Captured only when a v1 baseline re-sample is authorized:
+
+* n=15 fresh v1 suggestions on F&F at then-current substrate.
+* Classification against Q281.3-ε A/B/C/D/E rubric
+  verbatim.
+* Distribution deltas vs current-state baseline (once that
+  is locked per §18.6).
+
+Also captured passively: whenever Chris looks at v1
+suggestions during dogfood, record the exact set he saw
+(retrievable from the cache key or the SPA network log).
+This is a non-perturbing observation that costs zero extra
+inference.
+
+### 18.5.5 Story execution (composition read)
+
+Captured after each new composition:
+
+* Chris's verbatim subjective judgment (event-shaped /
+  procedural / mixed / other; whether it felt like a
+  story or a conversation ABOUT a story).
+* Rubric classification against Q281.3-α structural axes:
+  on-stage subject vs off-stage subject; cast-verb vs
+  past-tense; complication vs resolution; event vs
+  procedural; retrieved-memory alignment (structural vs
+  lexical vs none).
+* Preserve full `synthesized_brief` for later re-analysis.
+
+## §18.6 Whether a fresh v1 baseline sample is needed
+
+**METHODOLOGICAL FLAG — requires Chris + ChatGPT decision.**
+
+The historical Q281.3-ε F&F baseline (§18.4.6) was captured
+at substrate = 11 Ep / 1 mem. Current substrate is 12 Ep /
+3 mem after Chris's Slice 281.3 dogfood.
+
+Two positions:
+
+**Position A — Fresh baseline REQUIRED before Chris's next
+gesture.** Otherwise any future observed distribution shift
+conflates:
+
+1. the Slice 281.3 dogfood delta (already happened;
+   promoted `fa35eb8f` + `73acdfc0`; added Ep 12
+   `f4faa13b`), AND
+2. the longitudinal Slice 282.2 delta we want to measure.
+
+Neither can be isolated post-hoc. Cost: n=15 v1 samples on
+F&F at current state, estimated ~$0.036 per Q281.3-ε actual
+(SESSION 281 §Q1: 15 samples, 2364 in / 373 out tokens,
+~$0.036 blended). Well under the SESSION 281 §11 cost
+class for v1 sampling ($0.005-$0.02/call).
+
+**Position B — No fresh baseline; treat current state as
+the reference.** Skip the sample. First real re-sample
+would happen after ≥3 Chris compositions (or on evidence-
+driven trigger). Cost: $0.00 now. Interpretability cost:
+we'd have to treat the CURRENT state as the "baseline" but
+with no measurement of it, meaning any first
+re-measurement would blend baseline + accumulation into
+one number and we'd have to rely on the Q281.3-ε
+historical baseline to know whether the accumulation is
+meaningful.
+
+**Claude's methodological recommendation:** Position A.
+Without a locked current-state v1 baseline, the entire
+longitudinal comparison becomes uninterpretable — a
+distribution shift observed at checkpoint T=1 could equally
+be attributed to the S281.3 dogfood delta or to the
+Slice 282.2 accumulation, and we can never disentangle.
+
+**Position A cost estimate:** ~$0.036 (single, one-time
+15-sample baseline collection). No further provider spend
+this slice.
+
+**Per Chris + ChatGPT's authorization instruction ("If you
+believe a provider-backed baseline call is necessary, STOP
+and request explicit spend authorization before running
+it"): STOPPING. Awaiting Chris + ChatGPT decision on
+Position A vs Position B before executing any provider
+call.**
+
+If Position A is authorized: Claude runs the n=15 v1
+sampling on F&F at current state, classifies against
+Q281.3-ε rubric verbatim, preserves raw outputs under
+`docs/design/session282_experiment_data/q282_2_v1_baseline.json`,
+and appends the classification to this document. Then
+STOP.
+
+If Position B is authorized: no v1 sampling now. The
+protocol proceeds with the Q281.3-ε historical baseline
+carried forward with an explicit interpretability caveat
+recorded here. Then STOP.
+
+Either way, no Chris gesture is triggered by this slice —
+the first natural operator gesture (§18.10) waits on
+Chris + ChatGPT's separate authorization.
+
+## §18.7 Checkpoint schedule (LOCKED)
+
+Not fixed at "3-6 compositions." Density is
+evidence-triggered, not count-fixed.
+
+**Per-composition light-touch capture (always, zero spend):**
+after every new Chris composition, ORM-read the memory /
+episode / composition tables; record §18.5.1-§18.5.3 +
+§18.5.5 elements. No provider call. No inference.
+
+**v1 re-sampling triggers (require re-authorization each
+time):**
+
+Trigger IF ≥2 conditions hold:
+
+1. ≥2 new REMEMBERED memories added since last v1 sample.
+2. ≥2 new completed compositions since last v1 sample.
+3. Chris subjectively reports a felt shift (either
+   direction).
+
+Do NOT re-sample after every composition (over-sampling
+burns cost without adding signal).
+
+**Q281.3-ε full-rerun (n=15) reserved for genuine
+distribution-check moments.** Between full samples, opportunistic
+capture of what Chris actually saw during dogfood provides
+low-cost partial data.
+
+**Curator envelope classification:** always (zero-spend
+via cache re-read). Do not need to re-invoke curator; the
+Slice 281.2 SPA call is cached.
+
+**Story-execution classification:** always (zero-spend);
+Chris's subjective judgment plus rubric applied to the
+`synthesized_brief` string already in DB.
+
+## §18.8 Decision / stopping conditions (LOCKED)
+
+Applied only when a v1 re-sample or aggregated checkpoint
+review occurs. All four conditions defined BEFORE observing
+any post-baseline data.
+
+### 18.8.1 SUPPORT (evidence for organic improvement)
+
+Q282.2 SUPPORTS Hθ organic-accumulation IFF (at some
+future checkpoint):
+
+* Cumulative Chris-driven memories ≥ **5 additional**
+  memories beyond the current-baseline 3 (total ≥ 8),
+  AND
+* v1 distribution has moved TOWARD Patch's Workshop shape
+  on at least 2 axes with strict-yes deltas of ≥ +10
+  points OR weak-CONTROL rate dropped from ≥5% to ≤2%,
+  AND
+* Story-execution rubric shows ≥ 2 consecutive
+  compositions read event-shaped (not procedural) with
+  structural memory alignment (§18.5.5), AND
+* Chris subjective judgment: F&F stories feel richer or
+  more alive without prompting.
+
+Note: the ≥ +10-pt v1 delta threshold is set to exceed
+Q281.3-ε's 15-sample noise floor (~±10 points given n=15
+binomial variance).
+
+### 18.8.2 NO MEANINGFUL MOVEMENT
+
+Q282.2 concludes NO MOVEMENT IFF at a checkpoint after
+≥ 5 additional Chris compositions:
+
+* v1 distribution deltas ≤ ±5 points on every axis
+  (within noise), AND
+* Story-execution mix unchanged from baseline (procedural
+  risk still present at similar rate; event-shape rate
+  unchanged), AND
+* Chris subjective judgment: F&F feels the same.
+
+### 18.8.3 REGRESSION
+
+Q282.2 concludes REGRESSION IFF at a checkpoint:
+
+* v1 distribution moves AWAY from PW shape on ≥ 2 axes
+  by ≥ 10 points (strict-yes drops, weak-CONTROL rises),
+  OR
+* Story-execution shows more procedural runs than
+  baseline, OR
+* Chris subjective judgment: F&F stories feel worse or
+  more repetitive.
+
+Regression would trigger an immediate scope-lock pause and
+audit — SESSION 282 §T7 assumed the loop is at worst
+no-op, not harmful.
+
+### 18.8.4 UNINTERPRETABLE / CONFOUNDED
+
+Q282.2 pauses for confound investigation IFF any of:
+
+* Provider model changes mid-observation (e.g., v1
+  service or curator service model swaps).
+* Prompt-side changes land in v1 or curator service
+  during the observation window (violates the
+  §T10 no-implement rule; scope-lock breach).
+* Substrate mutation OUTSIDE the normal operator loop
+  (e.g., admin-panel edits, direct DB writes, memory
+  archival by anything other than Chris's operator
+  gestures).
+* Chris self-prescribes topics or promotion behavior for
+  experimental reasons (violates §18.3).
+* Retrieval / synthesis / verifier code changes (also
+  §T10 breach).
+* Curator prompt change during window.
+* Cast identity / K2 / business_brief edits.
+* Universe brief edits.
+
+Any of these invalidates comparisons across the confound
+boundary; earlier and later measurements cannot be pooled.
+
+## §18.9 Explicit non-scope of Slice 282.2
+
+Q282.2 is NOT designed to test:
+
+* Whether prompt-side interventions (Hβ / Hλ) would help.
+* Whether the seed-selection variance observation
+  (§16.4) can be resolved. That remains a separate open
+  question.
+* Whether Patch's Workshop substrate is causally
+  optimal — it's the comparison reference only.
+* Whether operator satisfaction is the "right" success
+  metric — Chris's subjective judgment is the ONE
+  operator-perspective signal we're capturing; it is
+  weighted alongside quantitative rubric evidence, not
+  as sole ground truth.
+
+## §18.10 Recommended first operator gesture
+
+Per authorization: state the first natural gesture without
+prescribing content.
+
+**Chris's next Fox & Flour interaction should be:**
+
+1. Open Fox & Flour in the SPA the way he normally would
+   when he wants to make a bakery story. Not a scheduled
+   dogfood session — a "I feel like making a bakery
+   story" session.
+2. Pick a topic ANY way he wants: type it freeform, pick
+   from v1 next-Episode suggestions, arrive at it via a
+   memory recall, whatever feels natural. If he picks
+   from v1, the exact suggestion he picks is data; if he
+   types it freeform, the text he types is data.
+3. Create the Episode + Composition through the normal
+   flow.
+4. Read the completed composition on its detail page.
+5. Look at the "A few ideas from what just happened."
+   curator cards. React as an operator: press
+   `[Remember this]` on anything he genuinely thinks
+   should matter later. Skip anything he doesn't want.
+   Edit + promote anything that's close but not quite
+   right. Do NOT promote anything just because it might
+   help the experiment.
+6. Optionally use the manual "What changed?" textarea if
+   he wants to remember something the curator didn't
+   surface.
+7. Move on when he's done. He does NOT have to make more
+   stories in the same session.
+
+After Chris's gesture, Claude (with re-authorization)
+performs the §18.5 capture across the five axes and
+appends a checkpoint entry to this document. No further
+provider spend for the checkpoint itself unless §18.7
+triggers a v1 re-sample.
+
+**Timeline:** unforced. Chris makes stories when he
+wants to make them. Slice 282.2 aggregates evidence as it
+arrives.
+
+## §18.11 What this slice explicitly does NOT execute
+
+* Does NOT create any new composition.
+* Does NOT invoke Chris to make any specific story.
+* Does NOT run any provider call unless §18.6 Position A
+  is authorized separately.
+* Does NOT modify any code, curator, v1 service, memory
+  schema, retrieval, synthesis, verifier, SPA, cast, or
+  Universe brief.
+* Does NOT archive, edit, supersede, or normalize any of
+  the 3 F&F or 14 PW memories.
+* Does NOT alter Slice 281.2 UI.
+* Does NOT touch any deferred candidate (2, 3, 4) from
+  §9 outside Candidate 2's own protocol scope.
+
+## §18.12 Slice 282.2 landing SHAs
+
+* Protocol + baseline lock: **this commit's SHA**
+  (appended in trailer on next commit).
+* Execution SHAs will accumulate one per checkpoint as
+  Chris + ChatGPT authorize each step.
+
+---
+
+# §19 Slice 282.2 — Decision gate (protocol lock only)
+
+**HALT.** Protocol + zero-spend baseline are locked.
+Awaiting Chris + ChatGPT decision on **§18.6** (whether to
+authorize the ~$0.036 fresh current-state v1 baseline
+sample) before either:
+
+1. Running the v1 baseline sample (Position A), OR
+2. Proceeding to Chris's first natural gesture with the
+   Q281.3-ε historical baseline as reference (Position B),
+   OR
+3. Something else Chris + ChatGPT deem appropriate.
+
+The first natural operator gesture (§18.10) does NOT begin
+until Chris + ChatGPT explicitly authorize it. No provider
+call is triggered by this slice.
+
+
 
