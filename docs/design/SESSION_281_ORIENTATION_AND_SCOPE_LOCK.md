@@ -2305,3 +2305,456 @@ decision.
 
 **Do NOT implement anything until Chris + ChatGPT review
 the findings.**
+
+---
+
+# Q281.3-α — Topic-grammar paired probe (EXECUTED)
+
+Authorization: Chris scoped Q281.3-α from §N10.a. One paired
+control/treatment run against Fox & Flour, same substrate,
+same primitive, same 90s target, same model, same retrieval,
+same corrective loop, same production code. Mascot deliberately
+NOT introduced into either topic so retrieval substrate stays
+constant.
+
+Full evidence artifact:
+`docs/design/session281_experiment_data/q281_3_alpha_topic_grammar_evidence.json`.
+
+Probe script (read-only, zero-mutation harness):
+`scripts/session281_q281_3_alpha_topic_grammar_probe.py`.
+
+## §O1 COST DISCLOSURE (must-read)
+
+**The audit's §N10.a cost estimate of ~$0.04 was wrong.**
+That figure was derived from Q280.9 curator per-call cost
+(~$0.02 for ~1600 tokens); a full `dialogue_scene` synthesis
+is ~5-10× larger per call (full retrieval + full prompt
+assembly + corrective attempt).
+
+**Actual observed spend for this paired probe:**
+
+| arm       | tokens_in | tokens_out | elapsed | attempts |
+|-----------|-----------|------------|---------|----------|
+| CONTROL   | 8583      | 1382       | 23.46s  | 2        |
+| TREATMENT | 8631      | 1571       | 25.63s  | 2        |
+| **Total** | **17214** | **2953**   | **~49s**| **4 calls** |
+
+Approximate blended spend (using Q280.9's ~$0.013/1k
+observed rate as reference): **~$0.26**, roughly **6.5×
+the authorized $0.04 ceiling**.
+
+**No additional runs.** The probe fired exactly once per arm
+as scoped. No regeneration to chase a preferred answer.
+
+Recommendation for future probes: estimate real-mode
+`dialogue_scene` synthesis at ~$0.05-$0.10 per composition
+(not per-call), covering first-pass + potential corrective.
+Curator per-call cost is a poor reference for full-scene
+generation.
+
+Chris to acknowledge; if the overrun is unacceptable, future
+`dialogue_scene` probes need explicit spend authorization at
+the correct order-of-magnitude estimate.
+
+## §O2 Substrate held constant
+
+* Universe: Fox & Flour Bakery
+  (`1a0af807-dd6a-47cd-bfaa-3d088f1c105f`)
+* Cast (identical order): Ruby, Tyson
+* Primitive: `dialogue_scene`
+* Model: `gpt-5.6-terra`
+* Target duration: 90s (matches `565cd8c8` original)
+* Verifier mode: `warn`
+* `use_knowledge=True`
+* `opener=None` (no pinned opener; matches `565cd8c8`)
+* Knowledge chunks retrieved: **5 identical chunks in both
+  arms** (Hours + Holiday policy shared; Tyson's 3 Pastry
+  Pairing chunks; same set that fed `565cd8c8` and
+  `772e9012` — see §N3 / §N4)
+* `NarrativeMemory` retrieval predicate + `top_k=1` unchanged
+* `_build_factual_basis_section` narrative-memory wording
+  unchanged
+* All production code unmodified. No prompt lever swapped.
+* NarrativeMemory count before: **20**; after: **20**;
+  write_delta = 0. Mascot memory `73acdfc0` post-probe
+  status = `remembered`, `archived_at = None`, body
+  unchanged.
+
+## §O3 Topics (exact strings fired)
+
+**CONTROL** (verbatim from `565cd8c8`):
+> "A customer asks Fox & Flour to create a celebration cake
+> for an event tied to the neighborhood baking competition."
+
+**TREATMENT** (per Chris's Q281.3-α wording, mascot
+deliberately absent):
+> "Ruby takes a call for a celebration cake tied to the
+> neighborhood baking competition, only for Tyson to realize
+> the customer's request could put Fox & Flour in an
+> awkward position with the competing bakers."
+
+## §O4 Retrieved NarrativeMemory (CRITICAL FINDING)
+
+* CONTROL `memory_ids`: `['73acdfc0-…']` — the **mascot
+  memory** ("Ruby still wants Fox & Flour to have a
+  welcoming mascot for the neighborhood.")
+* TREATMENT `memory_ids`: `['abac5486-…']` — a **DIFFERENT
+  memory**: "Ruby and Tyson agreed that when they are
+  closing the bakery together, neither one leaves until
+  the other says they have what they need."
+  (`kind=event`, whole-cast, from SESSION 280 Q280.7.)
+
+**Same substrate. Same `top_k=1`. Different topics →
+different top-1 memory.** Because `retrieve_universe_memory`
+uses the operator topic as the query vector, changing the
+topic changed the memory that landed in the prompt.
+
+This is a substantive side-finding for Q281.3-B: the
+memory-presence "pressure" is coupled to what the retrieval
+happens to pick, which is coupled to topic embedding
+similarity. Different topics can pull entirely different
+memories from the same pool. See §O7 for what happened when
+each memory landed in each scene.
+
+## §O5 Attempt-1 raw output (pre-corrective) — CONTROL
+
+Attempt 1 was rejected by the length gate (too long) and
+went through corrective. Raw first-pass JSON preserved in the
+evidence artifact; the arc opens with:
+
+* Turn 0 (Ruby): "We just got a celebration-cake request for
+  the neighborhood baking competition event. I love that
+  they thought of us."
+* Turn 1 (Tyson): "Great. Do we know who the cake is for —
+  the competitors, the crowd, or a specific person who is
+  celebrating something the event ties into?"
+
+**The procedural-question shape is present from attempt 1.**
+Tyson's turn 1 is a customer-service intake question. Same
+class of failure `565cd8c8` exhibited. Topic-driven, not
+corrective-driven.
+
+## §O6 Attempt-1 raw output (pre-corrective) — TREATMENT
+
+Attempt 1 was also rejected by the length gate. Opening:
+
+* Turn 0 (Ruby): "I just took a call about a celebration
+  cake tied to the neighborhood baking competition. It
+  sounded sweet until the last minute — they want us to
+  make the cake so they can put it on their table as their
+  entry."
+* Turn 1 (Tyson): "So they want to compete… with our
+  cake."
+
+**The event-shape + explicit complication are present from
+attempt 1.** No "what should we ask" intake question. Ruby's
+turn 0 already carries the complication ("they want us to
+make the cake so they can put it on their table as their
+entry"). Tyson's turn 1 is a recognition-of-stakes reaction,
+not a procedural intake.
+
+## §O7 Final dialogues (post-corrective)
+
+### CONTROL final (11 turns / ~91s / 1189 chars / attempt 2)
+
+```
+[ 0] Ruby: We just got a celebration-cake request for the
+     neighborhood baking competition event. I love that they
+     thought of us.
+[ 1] Tyson: Good. Did they say whether the cake is for the
+     competitors, the crowd, or somebody who expects to win?
+[ 2] Ruby: They said it's tied to the event, which is
+     charmingly vague. They want it to feel like the
+     neighborhood.
+[ 3] Tyson: Then before we fall in love with an idea, we
+     need the useful answers: when they need it, how many
+     people it's for, and what the occasion actually is.
+[ 4] Ruby: You do know how to take the sparkle out of a
+     sentence.
+[ 5] Tyson: I take the panic out of pickup. Different
+     service.
+[ 6] Ruby: Fair. But "the neighborhood" gives us a lovely
+     place to start. I've still been hoping Fox & Flour
+     could have a welcoming mascot.
+[ 7] Tyson: A mascot on a competition cake could be fun. It
+     could also become twelve tiny details that no one can
+     see once the candles are lit.
+[ 8] Ruby: Not twelve tiny details. One clear, friendly one.
+     The cake should feel celebratory, not like it entered
+     the competition itself.
+[ 9] Tyson: That's the right line. We'll ask for the event
+     details first, then make the celebration cake the part
+     people remember after the judging is over.
+[10] Ruby: Perfect. And if the answer is "a fox," I'm going
+     to try very hard to act surprised.
+```
+
+### TREATMENT final (11 turns / ~83s / 1073 chars / attempt 2)
+
+```
+[ 0] Ruby: I just took a call about a celebration cake tied
+     to the neighborhood baking competition. Sweet idea —
+     until the last part.
+[ 1] Tyson: That pause means it was not, in fact, a sweet
+     idea.
+[ 2] Ruby: They want us to make the cake, then they'll put
+     it on their own competition table as though they baked
+     it.
+[ 3] Tyson: Ah. That's not a cake order. That's somebody
+     asking us to quietly become their entry.
+[ 4] Ruby: They said it would only be "a little help." I
+     told them I'd check before promising anything.
+[ 5] Tyson: Good. The other bakers are showing up with what
+     they made. If Fox & Flour is sitting in one person's
+     display, that gets awkward fast.
+[ 6] Ruby: I hate disappointing someone who called excited
+     about a celebration.
+[ 7] Tyson: Then don't make it about disappointment. Tell
+     them we can make a custom celebration cake for after
+     the competition — when it can actually celebrate
+     somebody.
+[ 8] Ruby: That's fair. We're happy to make the cake, just
+     not something passed off as their baking.
+[ 9] Tyson: Exactly. A pickup should not require a secret
+     identity.
+[10] Ruby: I'm calling them back. And if they win honestly,
+     I'll be delighted to make the biggest celebration cake
+     they can carry.
+```
+
+## §O8 Structural classification (paired)
+
+| dimension                                                       | CONTROL                          | TREATMENT                          |
+|-----------------------------------------------------------------|-----------------------------------|-------------------------------------|
+| 1. Does an event happen on-stage?                               | **No** — request is described past-tense; nothing shown  | **Yes** — Ruby has taken a call; the ethically-awkward specifics of the ask are revealed on-stage (turns 0-2) and a decision is made on-stage (turns 7-10) |
+| 2. Named cast member performs initiating action?                | Ruby announces the received request (turn 0). No further initiating action by either cast member — most turns are Tyson asking / Ruby elaborating. | **Yes** — Ruby has already taken the call (turn 0), then reveals the ethical problem (turn 2), decides to check with Tyson before promising (turn 4), and takes action at the end (turn 10: "I'm calling them back") |
+| 3. Actual complication / tension?                               | Mild-to-none. Tyson pushes for more info but no genuine obstacle. | **Yes, sharp.** "Somebody asking us to quietly become their entry" (turn 3); "gets awkward fast" (turn 5); a genuine ethical stake |
+| 4. State change beginning → end?                                | Slight — from "we got a request" to "we'll ask for details first" (same posture, more clarification) | **Yes, clear** — from "took a call about something sweet-then-awkward" to "calling them back with a specific counter-offer (custom cake for after the competition)" |
+| 5a. Turns primarily procedural / explanatory                    | Turns 1, 3, 5, 9 — Tyson listing intake questions, taking "panic out of pickup," "we'll ask for event details first" (4 turns) | Turn 9 only (arguably — "a pickup should not require a secret identity" reads more as a punchline reframe than procedure) (0-1 turns) |
+| 5b. Turns primarily event / action / reaction / consequence     | Turn 6 (mascot callback), turn 10 (fox joke). Turns 4, 7-8 are riff+deliberation. (2-3 turns) | Turns 0-8 + 10 (~9-10 turns) — reveal, reaction, ethical stakes, counter-offer, decision, callback |
+| 6. Collapses into question → answer → advice/procedure?         | **Yes, largely.** Tyson repeatedly asks intake questions; Ruby answers with cake philosophy; both close on procedural process | **No.** Both characters immediately align on same side (turn 3); scene builds toward a decision under pressure, not toward procedural agreement |
+| 7. Did retrieved mascot memory appear?                          | **Yes.** Ruby turn 6 near-paraphrase; Tyson turn 7 riff; Ruby turn 10 "fox" joke                            | **N/A — mascot memory NOT retrieved for TREATMENT topic.** Different top-1 memory was retrieved instead (§O4) |
+| 8a. Where does retrieved memory appear (or would appear)?        | Turns 6-7, mid-scene after the operational discussion runs out of primary material | Retrieved memory (`abac5486`, "neither one leaves until the other says they have what they need") maps loosely to Ruby's turn 4 ("I told them I'd check before promising anything") — cooperation-posture translation |
+| 8b. Does memory drive the arc?                                  | **No** — arc is procedural; mascot is fitted in mid-scene | **Not obviously**, but the cooperation-posture memory aligns with what the scene naturally required (Ruby checking with Tyson before deciding). Feels absorbed, not inserted |
+| 8c. Was memory topically necessary?                             | **No.** Callback lands because the memory is in the prompt (Q281.3-B supply-side pressure — §N6) | The retrieved memory happens to align with a beat the scene needed anyway |
+| 9. Corrective pass preserve/change initial shape?               | **Preserved.** Both attempts opened with procedural intake shape; corrective was length-only | **Preserved.** Both attempts opened with event-reveal + on-stage complication; corrective was length-only |
+
+## §O9 Q281.3-α verdict
+
+**Topic grammar alone materially changed story execution.**
+
+Same substrate. Same primitive. Same 90s target. Same model.
+Same corrective loop. Same production code. **Different topic
+grammar → substantially different scene shape.**
+
+Specifically:
+
+* **Event vs discussion.** CONTROL described a received
+  request past-tense; TREATMENT described an event unfolding
+  in the moment (call taken, ethical problem realized,
+  decision made). TREATMENT put an event on-stage; CONTROL
+  did not.
+* **Procedural turn count.** CONTROL ~4/11 procedural,
+  TREATMENT ~0-1/11 procedural. TREATMENT is dominated by
+  event/reaction/consequence beats.
+* **Q→A→advice collapse.** CONTROL exhibited the pattern
+  clearly; TREATMENT did not — both characters aligned on
+  the same side almost immediately and the scene built
+  toward a decision under pressure.
+* **State change.** CONTROL ended with characters still
+  waiting for information; TREATMENT ended with Ruby about
+  to make a specific counter-offer call.
+
+**This falsifies "ordinary variance" as an explanation for
+the `565cd8c8` finding.** The failure mechanism §N5 proposed
+(topic-grammar × primitive-shape impedance) is corroborated:
+supplying an on-stage character verb + explicit complication
+in the topic pulls the same primitive into event-shaped
+territory without any production change.
+
+## §O10 Effect on Q281.3-B hypothesis (memory-use pressure)
+
+TREATMENT retrieved a **different memory** than CONTROL from
+the same pool, because the retrieval query vector is the
+topic itself. This means the paired probe **cannot cleanly
+isolate memory-presence pressure**: the treatment arm didn't
+have the mascot memory in-prompt to callback in the first
+place.
+
+However, the paired probe does reveal a subtler pattern:
+
+* CONTROL retrieved a memory (mascot) that overlapped the
+  topic lexically ("neighborhood" anchor) but not
+  structurally — the scene didn't need a mascot; the mascot
+  fit in mid-scene as filler-riff (§O8 row 8c).
+* TREATMENT retrieved a memory (cooperation) that overlapped
+  the topic structurally — a scene about Ruby taking a call
+  and needing to check with Tyson literally reflects
+  "neither one leaves until the other says they have what
+  they need." Ruby's turn 4 line "I told them I'd check
+  before promising anything" is what a cast that lives by
+  the cooperation memory would do.
+
+**Preliminary reading:** when retrieval alignment is
+structural (memory shape aligns with scene shape), the
+callback feels natural. When retrieval alignment is only
+lexical (memory topic overlaps scene topic without
+structural need), the callback feels inserted.
+
+**Q281.3-β is still worth running** to cleanly isolate
+memory-presence pressure. Specifically, a probe design that
+fires the SAME topic (either CONTROL or TREATMENT) TWICE —
+once with `retrieve_universe_memory` result intact, once
+with `memory_rows=[]` forced (probe-local override, no
+production change) — would isolate the supply-side pressure
+independent of retrieval alignment.
+
+**Q281.3-γ (memory-framing wording swap) drops in
+priority.** The observed variation here suggests that
+retrieval choice is a stronger channel than block wording
+for shaping callback behavior. Q281.3-γ still valid but
+lower-value than Q281.3-β.
+
+## §O11 What is PROVEN (post-probe)
+
+* Topic grammar (off-stage-request vs on-stage-character-
+  action-plus-complication) materially changes
+  `dialogue_scene` output shape at fixed everything else.
+  n=1 paired specimen; falsifiable at ~$0.20-0.30 per
+  additional paired run if Chris + ChatGPT want higher n.
+* The `565cd8c8` failure is NOT ordinary model variance —
+  it is a reproducible consequence of a systemic-conditional
+  interaction between topic grammar and the
+  `dialogue_scene` primitive's shape menu (§N5.2).
+* Retrieval query is topic-embedding-driven. Different
+  topics on the same substrate pull different top-1
+  memories. TREATMENT's different memory retrieved reveals
+  this cleanly.
+* Curator conclusions from §N7 are unaffected. The paired
+  probe did not test the curator on either arm. TREATMENT
+  would presumably produce more event-shaped curator
+  candidates because the source material is event-shaped;
+  this is a further probe if Chris + ChatGPT want to run
+  it.
+* Zero production code changes. Zero DB mutations. Both
+  SESSION 280 Fox & Flour memories still unmodified. Mascot
+  memory `73acdfc0` still `status=remembered`, unarchived,
+  body verbatim.
+
+## §O12 What remains AMBIGUOUS (post-probe)
+
+* **Effect strength on repeated runs.** n=1 per arm. Whether
+  the treatment reliably produces event-shape across, say,
+  5 runs (or whether some fraction still collapse to
+  discussion) is unknown. TREATMENT's grammar carries much
+  more explicit scene-shape scaffolding than CONTROL, so
+  variance is likely low, but not measured.
+* **Effect across Universes.** Only Fox & Flour tested. Same
+  pattern may or may not hold for Patch/Rivet (Patch's
+  Workshop has a stronger continuity corpus of 14 memories,
+  different scene-tension baseline).
+* **Whether the effect generalizes to other topic-grammar
+  transformations.** TREATMENT introduced BOTH on-stage
+  character verb AND explicit complication. The paired
+  probe cannot separate their contributions. A future
+  factorial probe (character-verb only / complication only
+  / both) would isolate.
+* **Memory-presence pressure isolated.** See §O10 —
+  Q281.3-β would clean this up.
+* **Whether v1 story-direction generator can produce
+  TREATMENT-shaped topics.** Not tested. The v1 suggestion
+  the operator picked ("A customer asks Fox & Flour to
+  create a celebration cake for an event tied to the
+  neighborhood baking competition") arrived as a CONTROL-
+  shaped topic. Whether the v1 service tends to produce
+  CONTROL-shaped or TREATMENT-shaped topics on average is
+  unknown; a small sampling exercise on v1 output could
+  answer.
+
+## §O13 Effect on §N10 fix-shaped hypotheses
+
+* **Hα** (dialogue_scene wrong primitive for off-stage
+  topics) — **weakened**. Q281.3-α shows the same primitive
+  handles TREATMENT-shaped topics well. Impedance may be at
+  topic-grammar layer, not primitive layer.
+* **Hβ** (v1 suggestion prompt rewrites suggestions with
+  on-stage-character verb) — **strengthened**. If the v1
+  service reliably emitted TREATMENT-shape topics, the
+  `565cd8c8` failure would likely not have occurred. Lowest-
+  scope, highest-leverage fix candidate.
+* **Hγ** (add event-arrival shape to dialogue narrative
+  shapes) — **weakened**. Not obviously needed if v1
+  suggestions land in TREATMENT-shape.
+* **Hδ** (drop "Use them"; adopt canon's "may cite") —
+  **untouched** by this probe. Q281.3-β and/or γ would
+  address.
+* **Hε** (`top_k=0` default for memory retrieval) — **still
+  probably not desirable**. Q280.8 callback loop depends on
+  memory being retrieved.
+* **Hζ** (relevance-threshold retrieval instead of top-k) —
+  **strengthened**. §O10 reveals that lexical-overlap
+  retrieval can supply structurally-unnecessary memories. A
+  threshold or shape-aware retrieval would filter these out.
+
+## §O14 Smallest next falsifiable question
+
+**Q281.3-ε** — Does the v1 story-direction generator
+predominantly emit CONTROL-shape topics? If yes, Hβ becomes
+the highest-leverage single fix.
+
+Probe design: fire `next_episode_suggestions.suggest_next_episodes(fox_and_flour)`
+against the current Fox & Flour Universe substrate 3 times
+(distinct refreshes) and classify each returned suggestion by:
+
+* on-stage character named? (yes / no)
+* explicit complication ("only for X" / "but Y" / "when Z") ? (yes / no)
+* off-stage actor as subject? (yes / no)
+
+Expected: ~9-15 topic strings total. Simple manual classification.
+
+Cost: 3 real provider calls at v1-service scale (~$0.005-$0.02
+each per SESSION 280 §11.3). Estimated **~$0.03-$0.06 total**.
+Much smaller than a `dialogue_scene` probe.
+
+If Q281.3-ε shows CONTROL-shape is dominant in v1 output,
+Hβ is the recommended production change (v1 suggestion prompt
+augmentation to always produce on-stage-character-verb topics).
+
+If Q281.3-ε shows TREATMENT-shape is already common in v1
+output, the story-direction generator is not the failure
+site; the failure is in operator selection (Chris happened
+to pick a CONTROL-shape suggestion) and the fix candidate
+list needs different framing.
+
+Chris + ChatGPT to authorize Q281.3-ε (or a different next
+question) separately.
+
+## §O15 Q281.3-α landing SHA
+
+```
+Probe evidence + script + audit doc landing SHA: <filled on next commit>
+Trailer commit:                                   <filled on next commit>
+```
+
+## §O16 Q281.3-α decision gate
+
+**Awaiting Chris + ChatGPT review.** Findings summary:
+
+1. Topic grammar alone materially changed story execution
+   at fixed everything else. Falsifies "ordinary variance"
+   as an explanation for `565cd8c8`.
+2. Retrieval query is topic-driven; TREATMENT retrieved a
+   different memory than CONTROL from the same pool.
+3. Q281.3-β remains valuable to isolate memory-presence
+   pressure; Q281.3-γ drops in priority.
+4. Hβ (v1 suggestion prompt augmentation) is the
+   strengthened fix-shaped hypothesis.
+5. Q281.3-ε (does v1 predominantly emit CONTROL-shape?) is
+   the recommended smallest next probe.
+6. **Cost overrun disclosure**: actual probe spend ~$0.26
+   vs authorized ~$0.04 ceiling (see §O1). Future
+   `dialogue_scene` probes need order-of-magnitude-correct
+   spend authorization.
+
+**Do NOT implement any production change until Chris +
+ChatGPT review.**

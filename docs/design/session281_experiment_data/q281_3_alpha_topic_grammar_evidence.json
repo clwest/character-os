@@ -1,0 +1,265 @@
+{
+  "probe": "Q281.3-\u03b1",
+  "started_utc": "2026-08-25T01:29:09.648500+00:00",
+  "finished_utc": "2026-08-25T01:29:58.729292+00:00",
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "cast": [
+    {
+      "id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+      "name": "Ruby"
+    },
+    {
+      "id": "f4de81f3-ef65-4196-a50e-38cfc6d1854f",
+      "name": "Tyson"
+    }
+  ],
+  "target_duration_seconds": 90,
+  "control": {
+    "topic": "A customer asks Fox & Flour to create a celebration cake for an event tied to the neighborhood baking competition.",
+    "elapsed_seconds": 23.455,
+    "model": "gpt-5.6-terra",
+    "tokens_input": 8583,
+    "tokens_output": 1382,
+    "target_duration_seconds": 90,
+    "predicted_seconds": 91.46,
+    "total_chars": 1189,
+    "attempt_count": 2,
+    "used_knowledge": true,
+    "overall_verification_status": "verified",
+    "chunk_ids": [
+      "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+      "219bcc30-02e7-4fbd-af16-f0284777edc1",
+      "a02de62d-b907-4819-89a0-8199254d30b4",
+      "2548f826-d41a-4a27-a3ab-b654794185fd",
+      "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+    ],
+    "memory_ids": [
+      "73acdfc0-44a1-40a0-abdc-e4f8069f6924"
+    ],
+    "aliases": {
+      "ruby": "Ruby",
+      "tyson": "Tyson"
+    },
+    "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"ruby\",\"text\":\"We just got a request for a celebration cake for an event connected to the neighborhood baking competition. I love that they thought of us for it, but I want to make sure we ask the right questions before I start picturing the whole thing.\"},{\"line_index\":1,\"speaker_alias\":\"tyson\",\"text\":\"Start with the practical ones: when is the event, how many people are they serving, and when do they need to pick it up? A lovely idea gets less lovely if it arrives after the competition has already crowned someone.\"},{\"line_index\":2,\"speaker_alias\":\"ruby\",\"text\":\"Fair. Then the feel of it\u2014whether they want something simple and elegant or something that really leans into the baking-competition spirit. A celebration cake should feel like it belongs to the moment, not just fill a space on the table.\"},{\"line_index\":3,\"speaker_alias\":\"tyson\",\"text\":\"And ask what the cake has to do besides look good. Is it the centerpiece? Is it being served after people have already been tasting baked goods? That changes how I\u2019d steer the conversation.\"},{\"line_index\":4,\"speaker_alias\":\"ruby\",\"text\":\"You are very good at rescuing me from getting carried away with the centerpiece part.\"},{\"line_index\":5,\"speaker_alias\":\"tyson\",\"text\":\"Someone has to. You hear \u201cneighborhood baking competition\u201d and mentally put a tiny crown on a cake before we know whether they need it for six people or sixty.\"},{\"line_index\":6,\"speaker_alias\":\"ruby\",\"text\":\"I would not put a tiny crown on it without asking first. I would ask warmly, and then consider it very seriously.\"},{\"line_index\":7,\"speaker_alias\":\"tyson\",\"text\":\"That is exactly the level of restraint I expected. We should also find out whether there are any preferences or dietary needs we need to account for. Better to get those details upfront than make the customer play detective at pickup.\"},{\"line_index\":8,\"speaker_alias\":\"ruby\",\"text\":\"Yes. Once we know the date, serving size, style, and any needs to keep in mind, we can help them shape a cake that feels properly celebratory. That\u2019s the nice part of a custom order\u2014it can belong to their event instead of looking borrowed from somebody else\u2019s.\"},{\"line_index\":9,\"speaker_alias\":\"tyson\",\"text\":\"Good. You take the cake vision. I\u2019ll make sure we know when it needs to leave the counter. Then, and only then, you may discuss the tiny crown.\"}]}",
+    "corrective_hint": "Your dialogue is too long.\n\nPrevious attempt: 1875 characters (~144s).\nTarget: 90s.\nHard acceptance ceiling: 1404 characters (~108s).\nYou must remove at least 471 characters.\n\nRewrite the SAME scene to approximately 1292 characters (~99s), leaving comfortable headroom below the hard ceiling.\n\nPreserve the conversational beats and causal chain. Do not solve this primarily by deleting turns.\n\nMake the LANGUAGE lighter:\n  * prefer short direct replies when natural;\n  * fragments are allowed;\n  * one idea per turn where possible;\n  * short reactions are valuable;\n  * remove second or third clauses that merely explain the reaction;\n  * remove explanations the previous line already made obvious;\n  * remove duplicated setup;\n  * remove repeated framing;\n  * remove decorative language that does not change the scene;\n  * do not narrate why a response is causally connected \u2014 let the response itself make that clear.\n\nPreserve: character identity; factual grounding; conversational causality; the scene's arc; the ending payoff.",
+    "corrective_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"ruby\",\"text\":\"We just got a celebration-cake request for the neighborhood baking competition event. I love that they thought of us.\"},{\"line_index\":1,\"speaker_alias\":\"tyson\",\"text\":\"Good. Did they say whether the cake is for the competitors, the crowd, or somebody who expects to win?\"},{\"line_index\":2,\"speaker_alias\":\"ruby\",\"text\":\"They said it\u2019s tied to the event, which is charmingly vague. They want it to feel like the neighborhood.\"},{\"line_index\":3,\"speaker_alias\":\"tyson\",\"text\":\"Then before we fall in love with an idea, we need the useful answers: when they need it, how many people it\u2019s for, and what the occasion actually is.\"},{\"line_index\":4,\"speaker_alias\":\"ruby\",\"text\":\"You do know how to take the sparkle out of a sentence.\"},{\"line_index\":5,\"speaker_alias\":\"tyson\",\"text\":\"I take the panic out of pickup. Different service.\"},{\"line_index\":6,\"speaker_alias\":\"ruby\",\"text\":\"Fair. But \u201cthe neighborhood\u201d gives us a lovely place to start. I\u2019ve still been hoping Fox & Flour could have a welcoming mascot.\"},{\"line_index\":7,\"speaker_alias\":\"tyson\",\"text\":\"A mascot on a competition cake could be fun. It could also become twelve tiny details that no one can see once the candles are lit.\"},{\"line_index\":8,\"speaker_alias\":\"ruby\",\"text\":\"Not twelve tiny details. One clear, friendly one. The cake should feel celebratory, not like it entered the competition itself.\"},{\"line_index\":9,\"speaker_alias\":\"tyson\",\"text\":\"That\u2019s the right line. We\u2019ll ask for the event details first, then make the celebration cake the part people remember after the judging is over.\"},{\"line_index\":10,\"speaker_alias\":\"ruby\",\"text\":\"Perfect. And if the answer is \u201ca fox,\u201d I\u2019m going to try very hard to act surprised.\"}]}",
+    "turns": [
+      {
+        "line_index": 0,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "We just got a celebration-cake request for the neighborhood baking competition event. I love that they thought of us.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 1,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "Good. Did they say whether the cake is for the competitors, the crowd, or somebody who expects to win?",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 2,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "They said it\u2019s tied to the event, which is charmingly vague. They want it to feel like the neighborhood.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 3,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "Then before we fall in love with an idea, we need the useful answers: when they need it, how many people it\u2019s for, and what the occasion actually is.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 4,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "You do know how to take the sparkle out of a sentence.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 5,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "I take the panic out of pickup. Different service.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 6,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "Fair. But \u201cthe neighborhood\u201d gives us a lovely place to start. I\u2019ve still been hoping Fox & Flour could have a welcoming mascot.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 7,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "A mascot on a competition cake could be fun. It could also become twelve tiny details that no one can see once the candles are lit.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 8,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "Not twelve tiny details. One clear, friendly one. The cake should feel celebratory, not like it entered the competition itself.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 9,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "That\u2019s the right line. We\u2019ll ask for the event details first, then make the celebration cake the part people remember after the judging is over.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 10,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "Perfect. And if the answer is \u201ca fox,\u201d I\u2019m going to try very hard to act surprised.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      }
+    ]
+  },
+  "treatment": {
+    "topic": "Ruby takes a call for a celebration cake tied to the neighborhood baking competition, only for Tyson to realize the customer's request could put Fox & Flour in an awkward position with the competing bakers.",
+    "elapsed_seconds": 25.625,
+    "model": "gpt-5.6-terra",
+    "tokens_input": 8631,
+    "tokens_output": 1571,
+    "target_duration_seconds": 90,
+    "predicted_seconds": 82.54,
+    "total_chars": 1073,
+    "attempt_count": 2,
+    "used_knowledge": true,
+    "overall_verification_status": "verified",
+    "chunk_ids": [
+      "219bcc30-02e7-4fbd-af16-f0284777edc1",
+      "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+      "a02de62d-b907-4819-89a0-8199254d30b4",
+      "2548f826-d41a-4a27-a3ab-b654794185fd",
+      "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+    ],
+    "memory_ids": [
+      "abac5486-6404-411b-ad42-54c9884b980f"
+    ],
+    "aliases": {
+      "ruby": "Ruby",
+      "tyson": "Tyson"
+    },
+    "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"ruby\",\"text\":\"That was a cheerful call right up until the last sentence. A neighbor wants a celebration cake for the baking competition\u2014and wants \u201cthe real winner\u201d written underneath Fox & Flour\u2019s name.\"},{\"line_index\":1,\"speaker_alias\":\"tyson\",\"text\":\"Ah. A cake that arrives smiling and immediately starts a fight.\"},{\"line_index\":2,\"speaker_alias\":\"ruby\",\"text\":\"They said it was meant to be funny. They also want every competing baker\u2019s name around the edge, so nobody feels left out. Except, apparently, everybody will feel left out.\"},{\"line_index\":3,\"speaker_alias\":\"tyson\",\"text\":\"If it\u2019s sitting anywhere near the competition, that stops being a joke between friends. It looks like we\u2019re using a cake to tell the other bakers we\u2019ve already called it.\"},{\"line_index\":4,\"speaker_alias\":\"ruby\",\"text\":\"I told them I needed to check on the wording before I promised anything. I can make a cake for a celebration; I just don\u2019t want our name turned into a little flag planted in the middle of somebody else\u2019s day.\"},{\"line_index\":5,\"speaker_alias\":\"tyson\",\"text\":\"Good. The awkward part isn\u2019t the cake. It\u2019s putting our shop into the contest when the people competing may be standing right there, trying to have a decent afternoon.\"},{\"line_index\":6,\"speaker_alias\":\"ruby\",\"text\":\"What if I call back and offer a cake for after the judging instead? Something that celebrates the neighborhood bakers, without declaring a winner before there is one.\"},{\"line_index\":7,\"speaker_alias\":\"tyson\",\"text\":\"That works. And if they really want a punchline, save it for the private party\u2014not the room full of people who have been up early baking.\"},{\"line_index\":8,\"speaker_alias\":\"ruby\",\"text\":\"Exactly. I want the cake to feel generous when it comes out, not like someone brought dessert and a megaphone.\"},{\"line_index\":9,\"speaker_alias\":\"tyson\",\"text\":\"Put that on the callback list. Though maybe not word for word. You\u2019re much nicer on the phone than I am.\"}]}",
+    "corrective_hint": "Your dialogue is too long.\n\nPrevious attempt: 1485 characters (~114s).\nTarget: 90s.\nHard acceptance ceiling: 1404 characters (~108s).\nYou must remove at least 81 characters.\n\nRewrite the SAME scene to approximately 1292 characters (~99s), leaving comfortable headroom below the hard ceiling.\n\nPreserve the conversational beats and causal chain. Do not solve this primarily by deleting turns.\n\nMake the LANGUAGE lighter:\n  * prefer short direct replies when natural;\n  * fragments are allowed;\n  * one idea per turn where possible;\n  * short reactions are valuable;\n  * remove second or third clauses that merely explain the reaction;\n  * remove explanations the previous line already made obvious;\n  * remove duplicated setup;\n  * remove repeated framing;\n  * remove decorative language that does not change the scene;\n  * do not narrate why a response is causally connected \u2014 let the response itself make that clear.\n\nPreserve: character identity; factual grounding; conversational causality; the scene's arc; the ending payoff.",
+    "corrective_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"ruby\",\"text\":\"I just took a call about a celebration cake tied to the neighborhood baking competition. Sweet idea\u2014until the last part.\"},{\"line_index\":1,\"speaker_alias\":\"tyson\",\"text\":\"That pause means it was not, in fact, a sweet idea.\"},{\"line_index\":2,\"speaker_alias\":\"ruby\",\"text\":\"They want us to make the cake, then they\u2019ll put it on their own competition table as though they baked it.\"},{\"line_index\":3,\"speaker_alias\":\"tyson\",\"text\":\"Ah. That\u2019s not a cake order. That\u2019s somebody asking us to quietly become their entry.\"},{\"line_index\":4,\"speaker_alias\":\"ruby\",\"text\":\"They said it would only be \u201ca little help.\u201d I told them I\u2019d check before promising anything.\"},{\"line_index\":5,\"speaker_alias\":\"tyson\",\"text\":\"Good. The other bakers are showing up with what they made. If Fox & Flour is sitting in one person\u2019s display, that gets awkward fast.\"},{\"line_index\":6,\"speaker_alias\":\"ruby\",\"text\":\"I hate disappointing someone who called excited about a celebration.\"},{\"line_index\":7,\"speaker_alias\":\"tyson\",\"text\":\"Then don\u2019t make it about disappointment. Tell them we can make a custom celebration cake for after the competition\u2014when it can actually celebrate somebody.\"},{\"line_index\":8,\"speaker_alias\":\"ruby\",\"text\":\"That\u2019s fair. We\u2019re happy to make the cake, just not something passed off as their baking.\"},{\"line_index\":9,\"speaker_alias\":\"tyson\",\"text\":\"Exactly. A pickup should not require a secret identity.\"},{\"line_index\":10,\"speaker_alias\":\"ruby\",\"text\":\"I\u2019m calling them back. And if they win honestly, I\u2019ll be delighted to make the biggest celebration cake they can carry.\"}]}",
+    "turns": [
+      {
+        "line_index": 0,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "I just took a call about a celebration cake tied to the neighborhood baking competition. Sweet idea\u2014until the last part.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 1,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "That pause means it was not, in fact, a sweet idea.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 2,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "They want us to make the cake, then they\u2019ll put it on their own competition table as though they baked it.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 3,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "Ah. That\u2019s not a cake order. That\u2019s somebody asking us to quietly become their entry.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 4,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "They said it would only be \u201ca little help.\u201d I told them I\u2019d check before promising anything.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 5,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "Good. The other bakers are showing up with what they made. If Fox & Flour is sitting in one person\u2019s display, that gets awkward fast.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 6,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "I hate disappointing someone who called excited about a celebration.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 7,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "Then don\u2019t make it about disappointment. Tell them we can make a custom celebration cake for after the competition\u2014when it can actually celebrate somebody.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 8,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "That\u2019s fair. We\u2019re happy to make the cake, just not something passed off as their baking.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 9,
+        "speaker_alias": "tyson",
+        "speaker_name": "Tyson",
+        "text": "Exactly. A pickup should not require a secret identity.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      },
+      {
+        "line_index": 10,
+        "speaker_alias": "ruby",
+        "speaker_name": "Ruby",
+        "text": "I\u2019m calling them back. And if they win honestly, I\u2019ll be delighted to make the biggest celebration cake they can carry.",
+        "verification_status": "verified",
+        "verification_warnings_count": 0
+      }
+    ]
+  },
+  "invariants": {
+    "narrative_memory_write_delta": 0,
+    "mascot_memory_id": "73acdfc0-44a1-40a0-abdc-e4f8069f6924",
+    "mascot_memory_status_after": "remembered",
+    "mascot_memory_body_after": "Ruby still wants Fox & Flour to have a welcoming mascot for the neighborhood."
+  },
+  "total_cost_estimate_dollars": 0.202
+}
