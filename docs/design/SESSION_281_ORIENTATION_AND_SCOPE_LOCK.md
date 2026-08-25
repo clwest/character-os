@@ -4172,8 +4172,8 @@ Q281.3-β (memory-presence pressure) still deferred.
 ## §S14 Q281.3-ξ landing SHA
 
 ```
-Probe evidence + script + audit doc landing SHA: <filled on next commit>
-Trailer commit:                                   <filled on next commit>
+Probe evidence + script + audit doc landing SHA: 606bb07
+Trailer commit:                                   <appended in the same commit as this update>
 ```
 
 ## §S15 Q281.3-ξ decision gate
