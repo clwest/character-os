@@ -8989,6 +8989,465 @@ ChatGPT review of the §79 design.
   - Q280.8 execution slice: `1772cfb`.
   - Q280.8 SHA trailer: `3e675bb`.
   - v1.5 curator UX design slice: `495034e`.
+
+---
+
+## §80 SESSION 280 — FINAL CLOSEOUT
+
+**SESSION 280 CLOSED.** Chris + ChatGPT approved §79 and
+chose §79.15 Option A¹³ (close SESSION 280 with §79 as the
+final substantive slice; roll SESSION 281 handoff around
+v1.5 implementation).
+
+§80 synthesizes the whole session arc rather than repeating
+the last decision gate. Every prior section (§1-§79) remains
+intact and unrevised.
+
+Cumulative session artifact: this document (9,000+ lines
+across 79 sections), 4 executed experiments, 1 shipped v1
+UX surface, 1 approved v1.5 UX design, and 2 durable
+substrate additions (both promoted memories LEFT IN PLACE
+per Chris's instruction).
+
+Total provider spend across all SESSION 280 experiments:
+**~$0.32**. Zero unauthorized substrate changes. Every
+prediction locked before its execution. Every design
+committed before it was implemented.
+
+### 80.A Finding 4i — cross-episode epistemic asymmetry
+
+**What triggered it.** SESSION 279 deferred Finding 4i from
+Q-278-3.2 Specimen 4-addendum: a Rivet-scoped "PATCH
+OVERRIDES" NarrativeMemory produced dialogue in which Patch
+approached the hidden subject unknowingly and Rivet responded
+consistent with private knowledge without exposing it — an
+apparent Semantic-2 storytelling behavior. Chris asked whether
+this represented mechanical per-character epistemic isolation
+or an emergent behavior of the LLM.
+
+**What the substrate actually does.** The audit (§4) traced
+retrieval + prompt construction + persistence end-to-end at
+HEAD `b71203a`:
+
+- `NarrativeMemory.witnessed_by` M2M gates ELIGIBILITY at
+  the cast boundary only, not per-speaker within a cast.
+- `retrieve_universe_memory` applies a cast-wide
+  OR-overlap filter; witness identity is discarded
+  post-filter.
+- `_assemble_system_prompt` emits ONE shared "EPISODE /
+  NARRATIVE MEMORY" block with NO per-speaker attribution;
+  framing text broadcasts memories as *"background the cast
+  already knows happened."*
+- `Composition.memory_ids` is a flat cast-wide list; no
+  per-speaker memory field exists anywhere in the substrate.
+
+**Mechanically proven:** per-character epistemic asymmetry
+is NOT enforced within a mixed cast. The eligibility filter
+correctly excludes Rivet-only memories from a `[Patch]`-solo
+cast (SESSION 268 §10 tests), but within a mixed cast, both
+speakers see the memory in the shared prompt.
+
+**What remained emergent.** Q280.4i-1 (§16-§17) ablated the
+in-body withholding clause and demonstrated the observed
+asymmetry was dominantly emergent from that clause + LLM
+narrative reasoning. Q280.4i-4 (§32-§35) showed the LLM
+reliably handles semantic reconciliation of past-tense
+memory + present-tense opener with high cross-generation
+consistency — but always in the direction of admission
+rather than continued concealment.
+
+**Construct-validity refinement (§24).** Chris's post-hoc
+challenge tightened the interpretation: the ablated body did
+not create an epistemic asymmetry Patch could not
+independently discover in his own workshop. §24 preserved
+the locked score but narrowed what P3 could claim.
+
+**Honest disposition of Semantic-2.** The v1 substrate
+implements Semantic 1 (cast-boundary eligibility only). The
+"secret comes out via direct question" beat is reliably
+producible (Q280.4i-4 6/6 immediate admission). The "secret
+continues to be held" beat and "false surprise" beat are
+NOT reliably producible. Semantic-2 as a beat MENU is not
+currently a mechanically-supported product primitive; any
+observed instances are emergent and stochastic. Chris's
+"AI creates, human decides" boundary is architecturally
+consistent with this finding — the substrate does what it
+does, and if operators want Semantic-2 shapes they must
+either author them via memory-body language or accept
+emergent behavior.
+
+**Related deferred work (still valid, NOT required for
+SESSION 281's first slice):** Q280.4i-3 (construct-valid
+mental-state private specimen), Q280.4i-5 (multi-Episode
+Scene 3 continuity), U-3a (implicit witness cue ablation),
+U-4 (generalization to other characters/Worlds), U-6
+(Semantic-2 as a general product goal).
+
+### 80.B Story-direction discovery
+
+**How the arc shifted.** After Q280.4i-1 (BRIDGE-DISCONFIRMED
+for cooperation-shape memories) and Q280.4i-4 (6/6 immediate
+admission), the investigation moved from memory mechanics to
+a broader question: could the same substrate support a
+lightweight operator-facing feature that surfaces possible
+next-Episode directions? This was Chris's Episode-chain
+bubbles concept, preserved from earlier product design work
+(PRODUCT_IA_V1 §6.1 "Next-step nudge"; SESSION 269 §17.9
+"Candidate next Episodes (not instructions)").
+
+**Evidence Episode topics/history already provide useful
+continuity.** Q280.5-1 (§48-§55) ran 3 suggestion sets each
+against Fox & Flour (10 Episodes, 0 memories) and Patch's
+Workshop (32 Episodes, 14 memories). Result: **6/6 STRONG
+sets** across both Universes. 18/18 PLAUSIBLE, 15/18
+PICKS-UP-A-THREAD, 18/18 RESPECTS-INVARIANTS. Fox &
+Flour's 0-memory pool did not prevent strong sets — Episode
+titles + topics alone were sufficient substrate.
+
+**Product concept.** "Where could this story go next?" —
+three light suggestion cards after the operator returns to
+the Universe Episodes list, offering possible next-Episode
+premises drawn from prior Episodes + memories + cast +
+Universe brief. Operator picks, ignores, refreshes, or
+writes their own. Suggestions are possibilities, not
+obligations. Nothing becomes canon merely because the model
+generated it.
+
+**v1 design + implementation.** §56-§68 designed the surface
+(Universe Episodes page, above `[New Episode]`, three
+stacked cards + `[Use this]` + `[Different ideas]` +
+loading/error/empty states, zero implementation vocabulary).
+§69-§71 implemented it (`shell/apps/universe/services/next_episode_suggestions.py`
++ `UniverseViewSet.next_episode_suggestions` action + Redis
+cache + `web/src/components/possible-next-episodes.tsx` +
+`useNextEpisodeSuggestions` hook + wiring). 115 backend
+tests + 42 frontend tests all green. Landed at `25b3168`.
+
+**Operator dogfood** (§72). Chris used the surface on Fox &
+Flour and selected the suggestion *"After getting locked out,
+Ruby proposes a foolproof closing routine, only for the new
+bakery mascot idea to complicate it."* Composition
+`772e9012` synthesized a coherent scene inventing "mascot
+clause / community outreach" details entirely from the
+Episode topic (no memory promotion). The refreshed
+post-Episode suggestions incorporated the new Episode
+verbatim into their substrate.
+
+**Why suggestions, not a rigid StoryArc planner.** Q280.6
+forensic audit (§72) classified the loop as **(B)
+TOPIC-LEVEL STORY LOOP** — Episode `operator_topic` is the
+ONLY unit that crosses forward through the completion
+boundary. Realized dialogue, verifier warnings, retrieved
+chunks, and inventive scene details all remain
+composition-local. The v1 surface deliberately does not
+enforce a linear arc; every suggestion is a possibility, and
+several unrelated Episodes may occur before an unresolved
+possibility resurfaces naturally.
+
+### 80.C Narrative-memory bridge
+
+**Q280.7 (§16-§20) and Q280.7 construct-validity re-audit
+(§24).** Ablated the in-body withholding clause from the
+PATCH OVERRIDES memory (mutual-departure rule promoted as
+proxy in F&F). BRIDGE-DISCONFIRMED for cooperation-shape
+memories: 0/9 rule-references in treatment; the LLM saw the
+memory but did not surface it as a suggestion attractor.
+
+**§74 key insight — memory shape matters.** Comparing
+PATCH OVERRIDES (surfaced 3/3 in Q280.5-1) vs the
+cooperation-shape mutual-departure rule (surfaced 0/3 in
+Q280.7-a): the two memories differ in narrative shape —
+tension-carrying + lexical-anchor vs cooperation-affirming
++ no anchor. Provisional interpretation: memory body SHAPE
+is a strong second-order predictor of whether promoted
+content resurfaces in suggestions. NOT reduced to "memory
+works / doesn't work" — the bridge is real but shape-selective.
+
+**Not overstated.** The evidence is two data points across
+two Universes. Q280.8 later confirmed the shape-selectivity
+hypothesis empirically with a controlled experiment (see
+§80.E). The refined classification (B**) captures the
+finding without over-generalizing.
+
+### 80.D Model-as-curator
+
+**Why Q280.9 was opened.** Post-Q280.7, Chris raised a
+product question: can the model itself identify which
+realized-scene details are worth preserving as future
+NarrativeMemory — while the operator remains the sole
+authority over what actually gets promoted?
+
+**Q280.9 execution (§76).** One LLM call to a curator-framed
+model against composition 772e9012 + Universe + prior
+Episodes + cast + existing memories. Result: **CURATOR-USEFUL
+disposition fires.** Model produced 4 valid JSON candidates
+on first try, 4/4 PARAPHRASE (not verbatim quotes), 4/4
+OPERATOR-PLAUSIBLE, 3/4 elevate callback/promise/open-loop
+material rather than bare resolution summary.
+
+**Multiple narrative functions demonstrated:**
+- **Durable event/rule** — Candidate #1 captured the mascot
+  clause as a `world_detail` with future-testable framing.
+- **Unresolved possibility/promise** — Candidate #2 kept
+  Ruby's mascot idea alive as `promise`.
+- **Reusable callback/joke** — Candidates #3 + #4 elevated
+  Tyson's "community outreach" and Ruby's embarrassment
+  hypothetical as `dialogue_callback` material.
+
+**Operator remains final authority.** The model curated
+(identified 4 candidates) but no memory row was created.
+Chris's Option A¹¹ explicit authorization to promote
+Candidate #3 was the "human decides" step.
+
+### 80.E Q280.8 full-loop validation
+
+**Loop under test:**
+
+```
+AI creates (composition synthesis)
+    ↓
+AI notices (Q280.9 curator identifies candidates)
+    ↓
+human decides (Chris authorizes promotion of Candidate #3)
+    ↓
+durable NarrativeMemory (fa35eb8f-… via existing service)
+    ↓
+future story-direction generation can use it
+   (Q280.8 Treatment refresh generates suggestions
+    that reference the promoted memory)
+```
+
+**Q280.8/A⁹ execution (§78).** Three-phase probe:
+- Phase 1 CONTROL (n=3, 1 memory in pool): **0/9
+  REFERENCES-CALLBACK-SURFACE**.
+- Phase 2 PROMOTE Candidate #3 via
+  `promote_from_composition` (real operator-facing service).
+  Landed memory row `fa35eb8f-098d-4fbf-86a3-3e38961c059e`.
+- Phase 3 TREATMENT (n=3, 2 memories in pool): **3/9
+  REFERENCES-CALLBACK-SURFACE**, **1/9 CONSTRUCT-VALID**.
+
+**The critical suggestion (Treatment 2.2):**
+
+> *"A mysterious overnight mess makes Tyson suspect the
+> mascot has been doing exactly the community outreach he
+> joked about."*
+
+Two independent CV criteria hit simultaneously: verbatim
+"community outreach" (distinctive lexical anchor from
+Candidate #3) + explicit "he joked about" attribution
+(remembered-joke framing). The LLM treats the promoted
+callback memory AS A CALLBACK — exactly as intended by the
+memory's `kind=dialogue_callback` semantics.
+
+**Prediction disposition (all locks preserved):**
+- P1⁷ (control 0/9 CV): CONFIRMED.
+- P2⁷ (treatment ≥ 1/9 CV): CONFIRMED (1/9 unambiguous).
+- P3⁷ (treatment > control): CONFIRMED (+3 RCS).
+- P4⁷ (cooperation memory continues not to surface):
+  PARTIALLY DISCONFIRMED — control 3.2 referenced Q280.7
+  cooperation memory language; refined to relative-rate
+  comparison at §78.5.
+
+**BRIDGE-CONFIRMED disposition fires** for callback-shape
+memories.
+
+**Statistical caveat.** n=3 refreshes per phase = small
+sample. The rate difference (callback ≈ 30% RCS vs
+cooperation ≈ 5.6% at n=18 combined with Q280.7-a) is
+suggestive of a real effect but does not establish a
+population parameter. §78.9 explicitly enumerated what
+Q280.8 does NOT establish.
+
+**Refined classification (B\*\*)** — TOPIC-LEVEL LOOP +
+shape-selective operator-curated memory bridge:
+- Episode topic always crosses forward.
+- Promoted-memory content crosses at rates dependent on
+  memory-body shape.
+- Human made every shape decision along the chain — Chris
+  authorized Q280.9, Chris authorized Q280.8 with
+  Candidate #3, promotion represented explicit approval.
+- The validated pattern is operator-in-the-loop, NOT
+  auto-promotion.
+
+### 80.F §79 final v1.5 curator UX design
+
+**Operator question the surface answers:**
+
+> **"What from this story should matter later?"**
+
+**Placement.** Inside the existing
+`NarrativeMemoryPromotePanel` on the composition detail
+page, above the free-text `What changed?` textarea.
+Additive, not replacement. Existing manual authoring path
+stays byte-identical.
+
+**Visible vs hidden metadata (§79.6).** Visible: candidate
+`body` + operator-voice `hint` derived from the model's
+`narrative_gravity_note`. Hidden: `kind`, `witnesses`
+(default whole-cast; existing radio remains available),
+`weight`, `embedding_vector`, `source_composition_id`,
+`episode_id`, `universe_id`, model reasoning trace, fact-
+that-it's-from-an-LLM.
+
+**Human-facing vocabulary (§79.5).** Sub-heading *"A few
+ideas from what just happened."* Sub-hint *"Remember the
+ones that might matter later."* Card actions
+`[Remember this]` / `Edit` / `Skip`. Divider *"Or write
+your own:"* leading into the existing textarea. Vocabulary-
+avoidance list bans: dialogue_callback, promise, event,
+world_detail, action, witnesses, embedding, retrieval,
+narrative gravity, memory weight, candidate, AI, LLM,
+prompt, model.
+
+**Existing component/API reuse (§79.9).**
+`NarrativeMemoryPromotePanel` shell + `usePromoteMemories`
+mutation + `useNarrativeMemoriesByComposition` recap +
+availability radio + `MemoryRow` renderer + Q280.9 probe
+prompt shape (lifted into production) + v1 suggestion
+service caching pattern.
+
+**Smallest SESSION 281 implementation shape (§79.10).**
+Two independently-landable commits:
+- Commit 1 backend (~500 lines): service +
+  CompositionViewSet action + tests.
+- Commit 2 frontend (~400 lines): hook +
+  `SuggestedMemoriesSection` sub-component + wiring +
+  tests.
+- **Total ~900 lines including tests.** Rollback: revert
+  either commit independently.
+
+**Acceptance criteria (§79.13, 8 items):** zero
+implementation vocabulary visible; Chris + one other
+operator can `[Remember this]` without asking clarifying
+questions; recap updates < 2s; Q280.8-comparable RCS rate
+on future suggestions; cost ≤ $0.03/page load; non-
+blocking loading; silent error state; existing manual path
+byte-identical.
+
+### 80.G Substrate state at SESSION 280 closeout
+
+- **Production code:** unchanged from `25b3168` (v1 UX
+  implementation slice) plus documentation-only commits
+  through this closeout.
+- **F&F REMEMBERED memory count: 2** (both left in place
+  per Chris's instruction):
+  - `abac5486-6404-411b-ad42-54c9884b980f` — Q280.7 mutual-
+    departure cooperation rule. Both witnesses [Tyson, Ruby],
+    kind=`event`, weight=peripheral, source composition
+    772e9012.
+  - `fa35eb8f-098d-4fbf-86a3-3e38961c059e` — Q280.8
+    Candidate #3 callback (*"Tyson joked that the mascot
+    might be left inside doing community outreach after
+    closing."*). Both witnesses [Tyson, Ruby],
+    kind=`dialogue_callback`, weight=peripheral, source
+    composition 772e9012.
+- **Reversibility:** both memories deletable via existing
+  SPA `NarrativeMemoryViewSet.destroy` (soft-delete to
+  `status=ARCHIVED`).
+- **v1 UX surface live** at `25b3168`. Operator can use it
+  today at
+  `/workspace/universes/1a0af807-…/episodes` (Fox & Flour)
+  or `/workspace/universes/56d16b63-…/episodes` (Patch's
+  Workshop).
+- **Test baseline:** 115 backend tests + 42 frontend tests
+  green after v1 implementation. No test drift documented
+  in later slices (§78 execution tests did not modify test
+  code; §79 design-only). SESSION 281 should re-run these
+  as an orientation baseline.
+
+### 80.H Working method preserved throughout
+
+Every experiment followed the same shape:
+1. AUDIT / ORIENT (current substrate, real code, real DB).
+2. Falsifiable question stated.
+3. Rubric + predictions LOCKED in a separate commit BEFORE
+   execution.
+4. Smallest controlled slice run.
+5. Evidence scored against locked rubric without post-hoc
+   revision.
+6. Findings documented durably.
+7. Decision gate — Chris + ChatGPT choose next.
+
+Every design followed:
+1. Current-state audit before proposing.
+2. Placement / behavior / copy specified concretely.
+3. Hidden vs visible metadata explicit.
+4. Non-goals enumerated.
+5. Rollback + reversibility documented.
+
+Every implementation followed:
+1. ORIENT against HEAD first.
+2. Smallest code surface.
+3. Focused regression coverage.
+4. Runtime evidence + comparison to intended UX.
+5. Documented what implementation revealed that design missed.
+
+### 80.I What SESSION 280 did NOT do
+
+- Did NOT implement the v1.5 curator affordance (design
+  only per Chris's Option A¹²).
+- Did NOT fix the §72.7 verifier `Episode.operator_topic`
+  scope boundary (recorded as side finding, deferred).
+- Did NOT open Q280.4i-3, Q280.4i-5, or any other Finding
+  4i sibling.
+- Did NOT run Q280.9 on Patch's Workshop tension-rich scene
+  (deferred; would test whether model curator behavior
+  differs on tension-rich source material).
+- Did NOT run Q280.9 refresh variance (n=3+) to
+  characterize curator output variance.
+- Did NOT archive either promoted memory.
+- Did NOT modify Ruby, Tyson, Patch, Rivet, their
+  personality, K2, or any other production data.
+- Did NOT change the v1 suggestion service, prompts,
+  retrieval, verifier, or any other production code beyond
+  what the v1 implementation slice landed at `25b3168`.
+
+### 80.J Full landing SHA index (SESSION 280)
+
+| Slice | SHA |
+|---|---|
+| AUDIT / ORIENT (Finding 4i open) | `6957c18` |
+| Q280.4i-1 execution | `8d8f733` |
+| Construct-validity re-audit | `f2507a0` |
+| Post-discovery epistemic-state audit | `63d4fdb` |
+| Q280.4i-4 execution | `ce16627` |
+| Episode-chain suggestion product-discovery | `1d96965` |
+| Q280.5-1 execution | `7f83b23` |
+| Q280.5-1 SHA trailer | `cfe287a` |
+| v1 UX design slice | `a3d294d` |
+| v1 UX design SHA trailer | `b19d030` |
+| v1 UX **implementation slice** | `25b3168` |
+| v1 implementation SHA trailer | `d7931b1` |
+| Q280.6 loop-trace audit | `b2f1789` |
+| Q280.6 SHA trailer | `48b5ac0` |
+| Q280.7 design + prediction lock | `c8d4be5` |
+| Q280.7 execution | `698616f` |
+| Q280.7 SHA trailer | `2fa7611` |
+| Model-as-curator audit (§75) | `b27ce6d` |
+| §75 SHA trailer | `c9ed068` |
+| Q280.9 execution | `e81949b` |
+| Q280.9 SHA trailer | `2332bdc` |
+| Q280.8 design + prediction lock | `f5e6d5e` |
+| Q280.8 execution | `1772cfb` |
+| Q280.8 SHA trailer | `3e675bb` |
+| v1.5 curator UX design (§79) | `495034e` |
+| v1.5 design SHA trailer | `d24c127` |
+| **SESSION 280 final closeout** (§80) | `[recorded on commit]` |
+
+### 80.K SESSION 280 CLOSEOUT MARKER
+
+**SESSION 280 IS CLOSED.**
+
+Final substantive slice: §79 v1.5 curator UX design.
+Handoff artifact: `docs/design/SESSION_281_HANDOFF.md`.
+
+Next session (SESSION 281) target: implement v1.5 per §79
+design + §79.10 shape, following the ORIENT →
+smallest-slice → dogfood working method that produced this
+session's evidence.
+
+Chris + ChatGPT will start a fresh Claude session using the
+handoff. Do NOT begin SESSION 281 in this context.
 - **Key design output:**
   1. Placement: **inside** the existing
      `NarrativeMemoryPromotePanel`, above the free-text
