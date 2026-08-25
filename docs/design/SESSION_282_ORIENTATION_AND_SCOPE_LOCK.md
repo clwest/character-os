@@ -3100,54 +3100,258 @@ to Chris + ChatGPT final green-light.**
 
 # §25 Slice 282.2 — Decision gate (correction complete)
 
-**HALT.** Zero-spend recalibration complete.
+**HALT.** Zero-spend correction complete. §24 supersedes
+the affected §22 metric/threshold clauses; historical
+§18.8 preserved as audit trail per §22.7.
 
-Revised locked criteria (§22.5 + §22.6) supersede §18.8
-for all post-T0 evidence. Historical §18.8 preserved as
-audit trail per §22.7.
+**Final post-T0 methodology is governed by §24
+(supersedes §22.4.1 multi-thread cell, §22.5.1
+guardrails, and §22.6.1-§22.6.3 continuity clauses).**
 
-**T0 continuity-integration classification (§22.4):**
+## §25.1 Canonical T0 continuity-integration classification (per §24.8)
 
-* Structural rate (CI-2+): **80%**
-* Multi-thread rate (CI-3+): **40%**
-* Consequence-generation rate (CI-4): **20%**
+* Structural rate (CI-2+): **12/15 (80%)**
+* Multi-thread rate (`distinct_threads_used ≥ 2`):
+  **4/15 (26.7%)** — corrected via §24.2
+* Consequence-generation rate (CI-4): **3/15 (20%)**
 * Distinct-thread diversity: **6** unique threads
   referenced across 15 suggestions
 * Thread concentration: **33%** on most-referenced
   threads (M3, E12) — not pathological
-* Notable: **M2 dialogue-callback memory is not
+* Notable: **M2 dialogue_callback memory is not
   referenced in any of the 15 v1 suggestions**;
   event/promise-shaped memories (M1, M3) get
-  structural use. Shape-over-count evidence.
-* Notable: **All 3 CI-4 candidates use MEMORIES, not
-  just Episode-titles.** Direct evidence promoted
+  structural use. Shape-over-count evidence
+  (unchanged from §22.4.2 finding).
+* Notable: **All 3 CI-4 candidates use MEMORIES**
+  (M1 twice via 2.4 + 3.4; M3+M1 combined via 1.4),
+  not just Episode-titles. Direct evidence promoted
   memories are disproportionately generative of
-  scene-test topics.
+  scene-test topics (unchanged from §22.4.2 finding).
 
-**Revised SUPPORT / NO MOVEMENT / REGRESSION /
-INSUFFICIENTLY-CONVERGED / CONFOUNDED are LOCKED
-before any post-baseline evidence.** §22.8 explicitly
-disallows further tuning after seeing checkpoint data.
+## §25.2 Final locked criteria for post-T0 evidence
 
-**Methodological concerns:** classifier-drift risk,
-n=15 binomial noise, PW-as-reference-not-target
-framing, and Chris-subjective-judgment load. All
-recorded (§22.8) and accepted as costs of the
-recalibration design.
+The complete locked criteria live in §24:
+
+* Structural guardrails with two-tier WARNING /
+  REGRESSION reading, both integer count and
+  percentage — see §24.3.1.
+* D-axis directional target ≤ 4/15 (26.7%) — see
+  §24.3.2.
+* SUPPORT criterion (all four must hold) — see §24.4.
+* NO MOVEMENT bands (±1 count around T0) — see §24.5.
+* REGRESSION triggers (structural rate ≤ 9/15,
+  diversity shrink, thread concentration ≥ 9/15,
+  worse story-execution, or negative subjective
+  judgment) — see §24.6.
+* CONFOUNDED list — unchanged from §22.6.4.
+* Emerging-evidence rule — unchanged from §22.6.5.
+
+**§24 explicitly disallows further threshold tuning
+after Chris's first post-T0 gesture** (§24.10 item 1).
+No methodology adjustments are permitted once
+observation begins.
+
+## §25.3 Methodological concerns retained
+
+Classifier-drift risk, n=15 binomial noise,
+PW-as-reference-not-target framing, subjective-judgment
+load — all recorded in §22.8 and reaffirmed by §24
+correction. §24.10 adds specific rationale for each
+integer-count threshold choice.
+
+## §25.4 First-natural-gesture status
 
 **Chris's first natural gesture is now cleanly
-interpretable and RECOMMENDED** (§22.9). Engineering
+interpretable and RECOMMENDED** (§24.11). Engineering
 safety was never in question; interpretive safety is
-now established.
+now established with count-based thresholds that
+respect the protocol's own stated noise assumptions.
+
+Every possible checkpoint outcome maps unambiguously
+to SUPPORT / NO-MOVEMENT / REGRESSION /
+INSUFFICIENTLY-CONVERGED / CONFOUNDED.
 
 **Awaiting Chris + ChatGPT** authorization for the
-first natural Chris gesture (§18.10) OR any further
+first natural Chris gesture (§18.10) OR any final
 protocol adjustments. Do NOT begin without explicit
 Chris + ChatGPT green-light on this gate.
 
 No provider spend, no code changes, no substrate
 mutation, no Chris SPA gesture triggered by this
-recalibration.
+correction.
+
+---
+
+# §26 SESSION 282 — Stopping-state closeout
+
+## §26.1 What SESSION 282 completed
+
+* **Slice 282.1** — curator-loop robustness diagnostic.
+  Q282.1 PASS with §16.4 caveat. Landing:
+  * Prediction lock `1075a2c`
+  * Execution `51b0ff3`
+  * Trailer `3a5ac0f`
+  * Spend: ~$0.021
+  * Substrate unchanged
+* **Slice 282.2** — longitudinal organic-growth
+  protocol design + T0 baseline lock + methodology
+  recalibration + protocol correction:
+  * Protocol + zero-spend baseline lock `42a1ec9`
+  * Protocol-lock trailer `8b0290d`
+  * v1 baseline execution (n=15) `2aaed25`
+  * Baseline-execution trailer `4efbf79`
+  * §22 zero-spend recalibration `1e2c4c2`
+  * Recalibration trailer `ea6349a`
+  * §24 zero-spend correction (C1 + C2) `5508b87`
+  * Correction trailer `d0d2b1f`
+  * Spend: ~$0.036 (one-time v1 baseline)
+  * Substrate unchanged
+
+Total SESSION 282 provider spend: **~$0.057** (well
+under the $0.10 + $0.05 = $0.15 combined ceilings
+authorized for Slice 282.1 and Slice 282.2 baseline).
+
+## §26.2 What SESSION 282 did NOT do
+
+* No post-T0 Chris SPA gesture has occurred.
+* No post-T0 composition has been created.
+* Q282.2 longitudinal observation has NOT begun.
+* No code changes (curator, v1, retrieval, synthesis,
+  verifier, SPA — all untouched).
+* No substrate mutation (F&F 3 mem / 12 Ep, PW 14 mem
+  / 32 Ep unchanged from SESSION 281 close +
+  Slice 281.3 dogfood).
+* No new dependencies.
+* No modification of canonical specimens.
+* No modification of Ruby / Tyson / Patch / Rivet.
+
+## §26.3 Resume point
+
+Extremely simple:
+
+> **Chris + ChatGPT may explicitly authorize the first
+> natural Fox & Flour gesture. Chris then uses
+> Character OS normally. The research layer observes
+> afterward and does not prescribe his story, memory
+> choices, or behavior.**
+
+The gesture protocol (§18.10, unchanged, non-
+prescriptive):
+
+1. Open Fox & Flour the way Chris normally would when
+   he wants to make a bakery story.
+2. Pick a topic any way he wants — freeform, v1
+   suggestion, memory recall, whatever feels natural.
+3. Create the Episode + Composition through the normal
+   flow.
+4. Read the completed composition.
+5. React to curator cards as an operator: promote
+   what genuinely matters, skip what doesn't, edit +
+   promote what's close.
+6. Never promote anything just because it might help
+   the experiment.
+7. Optionally use the manual "What changed?" textarea.
+8. Move on when done. Timeline unforced.
+
+After Chris's gesture, the research layer (with
+re-authorization) applies §18.5 five-axis capture and
+compares against §24 locked criteria to reach
+SUPPORT / NO-MOVEMENT / REGRESSION / INSUFFICIENTLY-
+CONVERGED / CONFOUNDED at the checkpoint.
+
+## §26.4 Non-blocking future questions preserved
+
+* **§16.4 seed-selection-variance observation.** All
+  3 curator reruns on F&F composition `772e9012`
+  produced the same 3 seed ideas (mascot clause /
+  tiny bell / embarrassment) with only wording
+  variation. Two interpretations remain live
+  (composition-determinism-as-feature vs paraphrase-
+  treadmill-as-limitation); n=4 does not distinguish.
+  **Non-blocking.** Preserved as a live open question
+  for future scope-lock consideration if Candidate 2
+  dogfood evidence brings it back into decision
+  relevance.
+* **§20.8.1 low variance mirror in v1.** Suggestion
+  3.1 = 2.1 verbatim across two separate n=5 v1
+  calls. Extends §16.4 finding from curator to v1
+  across primitives. Non-blocking; recorded for
+  future consideration alongside §16.4.
+* SESSION 281 §U4 deferred items (Q281.3-β / γ / ο,
+  Hκ, Hι, Hβ-permissive) — all remain deferred.
+* SESSION 280 §7 carry-forwards (Q280.4i-3 / -5,
+  U-3a, U-4/U-6, verifier-boundary Episode.operator_
+  topic, Finding 4c visual-storytelling limitation,
+  CONTENT_FORMAT_BACKLOG) — all remain deferred.
+
+## §26.5 What must NOT be done at resume
+
+Preserved from SESSION 281 §T10 + §18.11 + §22.7:
+
+* Do NOT modify Slice 281.2 curator UI, Slice 281.1
+  curator service, v1 next-Episode service,
+  retrieval, synthesis, verifier, memory schema,
+  witness semantics, or `promote_from_composition`.
+* Do NOT modify Ruby / Tyson / Patch / Rivet
+  identities, personalities, K2 docs, or
+  business_briefs.
+* Do NOT archive, edit, or supersede any of the 3
+  F&F memories or 14 PW memories.
+* Do NOT modify compositions `772e9012`, `565cd8c8`,
+  or `fcba3242`.
+* Do NOT install new Python / npm dependencies
+  without explicit approval.
+* Do NOT expose implementation vocabulary in
+  operator-facing surfaces.
+* Do NOT collapse the Hθ finding into "more
+  memories = better stories."
+* Do NOT run any provider-spend experiment without
+  explicit authorization at the correct order of
+  magnitude (curator ~$0.02/call; v1 ~$0.005-$0.02;
+  dialogue_scene ~$0.05-$0.20/composition).
+* Do NOT tune §24 methodology thresholds after
+  Chris's first post-T0 gesture.
+
+## §26.6 Substrate state at close (LOCKED — re-verify at resume)
+
+* **Fox & Flour Bakery** (`1a0af807-…`):
+  * 12 Episodes
+  * 3 REMEMBERED memories: `abac5486` (cooperation
+    clause), `fa35eb8f` (mascot outreach joke),
+    `73acdfc0` (mascot want)
+  * Canonical specimens preserved: `772e9012` (strong),
+    `565cd8c8` (weak)
+* **Patch's Workshop** (`56d16b63-…`):
+  * 32 Episodes
+  * 14 REMEMBERED memories including canonical PATCH
+    OVERRIDES row + Agent-arc cluster
+  * Composition `fcba3242` preserved (PATCH OVERRIDES
+    origin scene; used as Slice 282.1 Probe B source)
+
+Any resume session should re-verify these numbers via
+`DB_PORT=5434 manage.py shell` from `shell/` before
+declaring baseline intact.
+
+## §26.7 Complete SESSION 282 SHA index
+
+In landing order:
+
+1. `1075a2c` — Slice 282.1 prediction lock
+2. `51b0ff3` — Slice 282.1 executed
+3. `3a5ac0f` — Slice 282.1 trailer
+4. `42a1ec9` — Slice 282.2 protocol + baseline lock
+5. `8b0290d` — Slice 282.2 protocol-lock trailer
+6. `2aaed25` — Slice 282.2 v1 baseline executed
+7. `4efbf79` — Slice 282.2 baseline trailer
+8. `1e2c4c2` — Slice 282.2 §22 recalibration
+9. `ea6349a` — Slice 282.2 recalibration trailer
+10. `5508b87` — Slice 282.2 §24 correction (C1 + C2)
+11. `d0d2b1f` — Slice 282.2 correction trailer
+12. `<this commit>` — §25 fix + §26 closeout (SHA
+    recorded in trailer)
+
+Handoff document created: `docs/design/SESSION_283_HANDOFF.md`.
 
 
 
