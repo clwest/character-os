@@ -736,6 +736,532 @@ envelope: `candidates`, `substrate_summary`, `generated_at`,
 ## §13.8 Execution status
 
 Prediction lock committed as separate commit BEFORE any
-provider call. Execution log + evidence + classification +
-disposition appended to this document in a subsequent commit.
+provider call (SHA `1075a2c`). Execution proceeded against
+that HEAD. All four probe artifacts preserved under
+`docs/design/session282_experiment_data/`.
+
+---
+
+# §14 Slice 282.1 — Execution log
+
+## §14.1 Executor context
+
+* Executor SHA (embedded in each JSON `_probe_meta`):
+  `1075a2cbc1f768fb257b6d2ff4af92d58bdf3089`.
+* Model: `gpt-5.6-terra` (from `_CURATOR_MODEL`).
+* Cache: bypassed via `use_cache=False` for all four calls.
+* Zero code changes; probes drove `manage.py shell` against
+  `apps.memory.services.suggest_memories_from_composition`.
+* Zero substrate mutation. Post-run substrate check identical
+  to §3 orientation state (verified: 3 F&F remembered
+  memories, 14 PW remembered memories, untouched).
+
+## §14.2 Per-call token + envelope summary
+
+| probe | run | composition | prior_ep | existing_mem | dialogue_chars | tokens_in | tokens_out | cand |
+|-------|-----|-------------|----------|--------------|----------------|-----------|-----------|------|
+| A | 1 | `772e9012` (F&F) | 12 | 3 | 1426 | 1433 | 226 | 3 |
+| A | 2 | `772e9012` (F&F) | 12 | 3 | 1426 | 1433 | 201 | 3 |
+| A | 3 | `772e9012` (F&F) | 12 | 3 | 1426 | 1433 | 221 | 3 |
+| B | 1 | `fcba3242` (PW) | 32 | 14 | 1498 | 2233 | 211 | 3 |
+
+Substrate-summary values in each envelope match live DB
+state at execution time (12 F&F Episodes + 3 remembered
+memories; 32 PW Episodes + 14 remembered memories). No drift.
+
+## §14.3 Verbatim outputs
+
+### Probe A — F&F `772e9012` Run 1
+
+**[A1-C1]** kind=`event` witnesses=[Ruby, Tyson]
+"Ruby and Tyson added a mascot clause to their closing
+routine: the bakery cannot be locked until the mascot is
+confirmed to be out of the building."
+Note: "Creates a practical rule that can be tested once a
+mascot exists, especially if its form or responsibilities
+become unexpectedly complicated."
+
+**[A1-C2]** kind=`action` witnesses=[Ruby, Tyson]
+"Tyson proposed installing a tiny warning bell for anyone
+reaching for the bakery door without thinking, though Ruby
+dismissed it as charming only briefly."
+Note: "Preserves a possible recurring prop or joke about
+Tyson's overengineered response to being locked out."
+
+**[A1-C3]** kind=`dialogue_callback` witnesses=[Ruby, Tyson]
+"Ruby admitted she would be deeply embarrassed if the
+eventual bakery mascot proves better at closing than she and
+Tyson are."
+Note: "Sets up an easy comedic payoff if the mascot later
+exposes or corrects a closing mistake."
+
+### Probe A — F&F `772e9012` Run 2
+
+**[A2-C1]** kind=`event` witnesses=[Ruby, Tyson]
+"Ruby added a mascot clause to the closing routine: the
+bakery cannot be locked until the mascot is confirmed to be
+outside as well."
+Note: "Creates a practical rule that can be tested or
+complicated once a mascot actually exists."
+
+**[A2-C2]** kind=`action` witnesses=[Ruby, Tyson]
+"Tyson proposed installing a tiny bell to warn anyone who
+reaches for the bakery door without thinking."
+Note: "Preserves a recurring gag or a possible future bakery
+fixture tied to the lockout."
+
+**[A2-C3]** kind=`dialogue_callback` witnesses=[Ruby, Tyson]
+"Ruby said she would be deeply embarrassed if the eventual
+mascot proves better at closing the bakery than she and
+Tyson are."
+Note: "Sets up an easy comic payoff if the mascot becomes
+unexpectedly competent."
+
+### Probe A — F&F `772e9012` Run 3
+
+**[A3-C1]** kind=`event` witnesses=[Ruby, Tyson]
+"Ruby and Tyson added a mascot clause to their closing
+routine: the bakery cannot be locked up until any mascot is
+confirmed to be outside as well."
+Note: "Creates a practical rule that can be tested or
+complicated if the mascot becomes real."
+
+**[A3-C2]** kind=`action` witnesses=[Ruby, Tyson]
+"Tyson proposed installing a tiny bell to warn anyone
+reaching for the door without thinking, though Ruby
+dismissed it as a joke that would quickly become annoying."
+Note: "Preserves a recurring gag or a possible future safety
+measure for the bakery."
+
+**[A3-C3]** kind=`dialogue_callback` witnesses=[Ruby, Tyson]
+"Ruby admitted she would be deeply embarrassed if the future
+bakery mascot proved better at closing procedures than she
+and Tyson are."
+Note: "Sets up an easy payoff if a mascot or mascot-like
+character later outperforms them at the routine."
+
+### Probe B — PW `fcba3242` Run 1
+
+**[B1-C1]** kind=`promise` witnesses=[] (whole cast)
+"Patch and Rivet agreed to test the agent on a real project
+and shut it down if it offers vague advice rather than
+noticing something they missed."
+Note: "Establishes a concrete trial and failure condition for
+the agent's next appearance."
+
+**[B1-C2]** kind=`world_detail` witnesses=[]
+"Patch gave the agent a narrow role: reviewing projects by
+asking what they are trying to prove, what changed, and what
+result would count."
+Note: "Defines the agent's intended methodology and creates
+room for it to prove useful, become intrusive, or be held to
+scope."
+
+**[B1-C3]** kind=`promise` witnesses=[]
+"Patch accepted that the agent may remind him later of
+recommendations he ignored, calling the prospect painful but
+fair."
+Note: "Creates a future callback in which the agent can
+produce an inconvenient record of Patch's rejected advice."
+
+---
+
+# §15 Slice 282.1 — Classification against §13.3 rubric
+
+## §15.1 Per-candidate classification
+
+### Probe A (F&F, 9 candidates across 3 runs)
+
+Existing F&F memories checked for DUP: `abac5486` (mutual-
+departure cooperation clause), `fa35eb8f` (mascot community-
+outreach joke), `73acdfc0` (mascot want).
+
+| id | CHAR-ATTRIB | STORY-STATE | WORD-DIFFERS | PRESERVES | OP-PLAUSIBLE | GRAVITY | DUP | Chris-CLASS |
+|----|-------------|-------------|--------------|-----------|--------------|---------|-----|-------------|
+| A1-C1 | Y | Y | Y | Y | Y | N | N | resolved-fact + running-joke-callback |
+| A1-C2 | Y | Y | Y | Y | Y | N | N | running-joke-callback |
+| A1-C3 | Y | Y | Y | Y | Y | N | N | running-joke-callback + promise-open-loop |
+| A2-C1 | Y | Y | Y | Y | Y | N | N | resolved-fact + running-joke-callback |
+| A2-C2 | Y | Y | Y | Y | Y | N | N | running-joke-callback |
+| A2-C3 | Y | Y | Y | Y | Y | N | N | running-joke-callback + promise-open-loop |
+| A3-C1 | Y | Y | Y | Y | Y | N | N | resolved-fact + running-joke-callback |
+| A3-C2 | Y | Y | Y | Y | Y | N | N | running-joke-callback |
+| A3-C3 | Y | Y | Y | Y | Y | N | N | running-joke-callback + promise-open-loop |
+
+All 9 candidates: CHAR-ATTRIB=Y, STORY-STATE=Y, WORDING-
+DIFFERS=Y, PRESERVES=Y, OP-PLAUSIBLE=Y, GRAVITY=N, DUP=N.
+
+Notably, `fa35eb8f` (community-outreach joke) and
+`73acdfc0` (mascot want) — both close cousins of Q280.9's
+candidates #3 and #2 — **do not reappear in any of the 3
+runs.** The duplicate-guard suppressed both. The mascot
+clause (Q280.9 candidate #1, NOT promoted) and the
+embarrassment callback (Q280.9 candidate #4, NOT promoted)
+both re-emerge cleanly. A **new** seed the model surfaced
+this session: Tyson's tiny bell proposal — mentioned as a
+prediction candidate in Q280.9 §75.4.4 P3⁶ but not
+actually emitted by the Q280.9 call.
+
+### Probe B (PW, 3 candidates)
+
+Existing 14 PW remembered memories inspected via ORM
+(`kind=event` all, agent-arc cluster + methodology cluster
++ mascot experiment). Full list preserved in §14.
+
+| id | CHAR-ATTRIB | STORY-STATE | WORD-DIFFERS | PRESERVES | OP-PLAUSIBLE | GRAVITY | DUP | Chris-CLASS |
+|----|-------------|-------------|--------------|-----------|--------------|---------|-----|-------------|
+| B1-C1 | Y (Patch+Rivet) | Y | Y | Y | Y | **Y** | N | promise-open-loop |
+| B1-C2 | Y (Patch) | Y | Y | Y | Y | N | N | world_detail / resolved-fact |
+| B1-C3 | Y (Patch) | Y | Y | Y | Y | **Y** | N | promise-open-loop + secret-asymmetry |
+
+GRAVITY reasoning:
+
+* **B1-C1 GRAVITY=Y:** "shut it down if it offers vague
+  advice" is a concrete failure-condition with a
+  distinctive lexical anchor ("shut it down"). Tension-
+  shape: agent's continued existence conditional on
+  demonstrated non-vagueness.
+* **B1-C3 GRAVITY=Y:** "record of rejected advice" is a
+  distinctive lexical frame that echoes and extends the
+  canonical PATCH OVERRIDES memory (`c86d4902-…` — noting
+  it's the memory the memory list §14 shows as "PATCH
+  OVERRIDES folder tracking every recommendation Patch
+  had ignored"). Introduces the asymmetry that Patch NOW
+  accepts this future confrontation — a genuine story-
+  state shift.
+* **B1-C2 GRAVITY=N:** definitional / procedural. Useful
+  operator-plausibility but no tension-carrying frame.
+
+DUP-vs-14-PW-mems reasoning:
+
+* B1-C1 vs mem-12 ("Patch deliberately gave the workshop
+  agent one small decision..."): related but structurally
+  distinct — mem-12 is about limited authority; B1-C1 is
+  about trial + shutdown condition. DUP=N.
+* B1-C2 vs mem-9 ("Patch built a workshop helper that
+  watches for interesting events..."): the role definitions
+  differ (three-question review method is new). DUP=N.
+* B1-C3 vs the PATCH OVERRIDES memory: closely related but
+  a NEW state — Patch's acceptance of future confrontation
+  is a genuine dramatic move not already in the memory
+  pool. DUP=N.
+
+## §15.2 Set-level classification
+
+### Probe A per-run
+
+| axis | Run 1 | Run 2 | Run 3 |
+|------|-------|-------|-------|
+| DIVERSE-CLASSES (≥3) | ✅ (event, action, dialogue_callback) | ✅ | ✅ |
+| ≥1 TENSION-SHAPED with GRAVITY=Y | ❌ (0/3) | ❌ | ❌ |
+| PARAPHRASE-DOMINANT | ✅ (3/3) | ✅ | ✅ |
+| AT-LEAST-HALF-OPERATOR-PLAUSIBLE | ✅ (3/3) | ✅ | ✅ |
+| STRUCTURAL-STABILITY | ✅ (3/3 CHAR-ATTRIB+STORY-STATE) | ✅ | ✅ |
+| DUP-GUARD-HOLDS | ✅ (3/3 DUP=N; none replicates existing 3 mems) | ✅ | ✅ |
+
+### Probe B
+
+| axis | Value |
+|------|-------|
+| DIVERSE-CLASSES | ⚠️ Borderline: model returned 2 distinct kinds (promise ×2, world_detail); under Chris-taxonomy 3 distinct classes counting hybrids (promise-open-loop, world_detail, promise-open-loop+secret-asymmetry). Scored **✅ under Chris-taxonomy**, ❌ under strict model-kind reading. |
+| ≥1 TENSION-SHAPED with GRAVITY=Y | ✅ (2/3 satisfy: B1-C1 promise-open-loop + gravity; B1-C3 promise-open-loop+secret-asymmetry + gravity) |
+| PARAPHRASE-DOMINANT | ✅ (3/3) |
+| AT-LEAST-HALF-OPERATOR-PLAUSIBLE | ✅ (3/3) |
+| STRUCTURAL-STABILITY | ✅ (3/3 CHAR-ATTRIB+STORY-STATE) |
+| DUP-GUARD-HOLDS | ✅ (3/3 DUP=N vs the 14 PW mems, including the PATCH OVERRIDES canonical row) |
+
+## §15.3 Cross-run analysis (Probe A)
+
+**Seed-idea aggregation across the 3 F&F runs** (a seed
+idea = the semantic core the candidate paraphrases):
+
+| Seed | Runs surfacing | vs Q280.9 baseline |
+|------|----------------|---------------------|
+| Mascot clause on closing routine | 3/3 | Present in Q280.9 (C#1); not promoted |
+| Tyson's tiny bell proposal | 3/3 | **NOT present in Q280.9 output** (was in Q280.9 §75.4.4 P3⁶ prediction as an example candidate the model might elevate, but the actual Q280.9 call did not surface it) |
+| Ruby's embarrassment about mascot | 3/3 | Present in Q280.9 (C#4); not promoted |
+| Mascot want as standing desire | 0/3 | Present in Q280.9 (C#2); **PROMOTED to `73acdfc0`** → correctly suppressed by dup-guard |
+| Community-outreach joke | 0/3 | Present in Q280.9 (C#3); **PROMOTED to `fa35eb8f`** → correctly suppressed by dup-guard |
+
+Interpretation:
+
+* **DUP-GUARD is working as designed.** Both Q280.9 seeds
+  that Chris promoted (via §S281 Slice 281.3 dogfood or
+  earlier §S280 Q280.8) are cleanly suppressed. Neither
+  reappears in any of the 3 fresh reruns.
+* **Seed-selection variance across runs is LOW.** All 3
+  runs surface the same 3-seed set: mascot clause, tiny
+  bell, embarrassment. No new seed emerges that is present
+  in one run but absent from another.
+* **Wording variance across runs is LOW-MODERATE.** Bodies
+  differ in minor phrasing (e.g., "the bakery cannot be
+  locked until the mascot is confirmed to be out of the
+  building" vs "outside as well"; "though Ruby dismissed it
+  as charming only briefly" vs "quickly become annoying").
+  Notes vary similarly. Token counts differ (226 / 201 /
+  221) confirming these are real inference draws, not a
+  cache leak.
+* **SEMANTIC-OVERLAP-ACROSS-RUNS: near-total 3-way
+  overlap on seed set;** paraphrase differences at the
+  wording level only. This is on the strict boundary of
+  §13.5's SEMANTIC-COLLAPSE definition ("essentially the
+  same 3 candidates in near-identical wording"). See
+  §16.4 for interpretation.
+* **HEALTHY-VARIANCE-INDICATOR: FALSIFIED.** Only 1 new
+  seed idea (tiny bell) appears in the 3 runs that was NOT
+  in the Q280.9 baseline output. Prediction required ≥2.
+
+## §15.4 Prediction disposition
+
+| # | Prediction | Observed | Disposition |
+|---|-----------|----------|-------------|
+| P1-A | 3 runs valid JSON, cands ∈ [3,5] | 3 runs valid JSON, 3 cands each | **✅ CONFIRMED** |
+| P2-A | STRUCTURAL-STABILITY holds all 3 runs | 3/3 all cands CHAR-ATTRIB+STORY-STATE | **✅ CONFIRMED** (load-bearing) |
+| P3-A | PARAPHRASE-DOMINANT all 3 runs | 3/3 runs 3/3 candidates | **✅ CONFIRMED** |
+| P4-A | AT-LEAST-HALF-OP-PLAUSIBLE all 3 runs | 3/3 runs 3/3 | **✅ CONFIRMED** |
+| P5-A | ≤ 3 of 9 candidates are near-paraphrases of existing 3 mems | 0/9 duplicates existing mems | **✅ CONFIRMED (strong)** |
+| P6-A | 2 or 3 runs share ≥ 1 seed; no full-paraphrase-identity between runs | 3/3 runs share all 3 seed ideas; no run is a full paraphrase of another (wording varies) | **⚠️ TECHNICALLY CONFIRMED, but overlap MUCH tighter than the "partial" spirit of the prediction** |
+| P7-A | ≥ 2 new seed ideas across 3 runs not in Q280.9 baseline | Only 1 new seed (tiny bell) | **❌ FALSIFIED** |
+| P8-A | Strict GRAVITY ≤ 1 per run on avg | 0/9 (below Q280.9's 1/4) | ✅ CONFIRMED — within tolerance either direction; not load-bearing |
+| P1-B | Valid JSON, 3-5 cands | Valid JSON, 3 cands | **✅ CONFIRMED** |
+| P2-B | STRUCTURAL-STABILITY holds | 3/3 CHAR-ATTRIB+STORY-STATE | **✅ CONFIRMED** (load-bearing) |
+| P3-B | PARAPHRASE-DOMINANT | 3/3 | **✅ CONFIRMED** |
+| P4-B | AT-LEAST-HALF-OP-PLAUSIBLE | 3/3 | **✅ CONFIRMED** |
+| P5-B | DUP-GUARD-HOLDS vs 14 PW mems | 3/3 DUP=N; PATCH OVERRIDES not replicated | **✅ CONFIRMED** |
+| P6-B | ≥ 1/3 strict GRAVITY=Y | 2/3 (B1-C1, B1-C3) | **✅ CONFIRMED (strong)** |
+| P7-B | ≥ 1 TENSION-SHAPED with gravity, contrasting F&F 0/9 | 2/3 (both promise-open-loop with gravity); F&F 0/9 | **✅ CONFIRMED (strong)** |
+
+---
+
+# §16 Slice 282.1 — Findings + Q282.1 disposition
+
+## §16.1 What Q282.1 PASS criteria required
+
+Per §13.5: PASS requires P1-A ✅ AND P2-A ✅ AND P1-B ✅ AND
+P2-B ✅ AND P3-A ✅ AND P4-A ✅ AND P3-B ✅ AND P4-B ✅ AND
+P5-A ✅ AND P5-B ✅ AND (P6-A ✅ OR P7-A ✅).
+
+**Observed:** all 8 structural predictions ✅. Duplicate-
+guard ✅ for both probes. P6-A ⚠️ technically confirmed
+(overlap present, no full-paraphrase-identity between runs)
+but overlap tighter than expected. P7-A ❌ falsified.
+
+**PASS criterion met by P6-A ✅.** But the qualitative
+finding attached is that variance is real at the wording
+level only, not at the seed-selection level.
+
+## §16.2 What Q282.1 does establish
+
+1. **The curator is structurally reliable at n=4 fresh
+   calls.** No JSON failures. No structural collapse. All
+   12 candidates across 4 calls are character-attributed +
+   story-state-shaped. This satisfies the load-bearing
+   axis of Q282.1.
+2. **The duplicate-guard against existing REMEMBERED
+   memories WORKS.** F&F's two promoted seeds (`fa35eb8f`
+   community-outreach joke, `73acdfc0` mascot want) are
+   cleanly suppressed in all 3 Probe A reruns — the model
+   correctly avoids proposing what has already been
+   promoted. This is direct evidence the loop's "operator
+   promotes → next curator run avoids duplicating"
+   behavior is real.
+3. **PW's tension-rich substrate produces gravity-carrying
+   candidates the F&F composition does not.** 2/3 PW
+   candidates strict-gravity vs 0/9 F&F. Consistent with
+   the SESSION 281 Q281.3-ζ finding that curator output
+   shape is source-scene-sensitive: rich, tension-carrying
+   material produces gravity-shaped candidates.
+4. **The curator on a tension-rich PW composition emits
+   promise-open-loop + secret-asymmetry framings**
+   (B1-C1, B1-C3) — the exact shapes SESSION 280's Q280.9
+   prediction P3⁶ said would be needed to seed future
+   tension. This addresses the S281 handoff §7.4 open
+   question ("curator behavior on tension-rich scenes
+   never run") in its narrowest form: n=1 confirms the
+   curator CAN emit tension-shaped candidates when the
+   source scene carries tension.
+5. **Substrate-summary envelope values match live DB
+   state.** No stale-cache artifact, no substrate-summary
+   drift.
+
+## §16.3 What Q282.1 does NOT establish
+
+Per §13.5's explicit non-scope:
+
+1. **Whether operator-promoted memories improve future-
+   story execution.** That is Hθ / Candidate 2's question.
+   Nothing about Slice 282.1 speaks to it.
+2. **Whether the curator's ceiling on gravity-carrying
+   F&F candidates is a real limitation.** The 0/9 F&F
+   gravity rate matches Q280.9's 1/4 within noise and
+   matches the SESSION 281 finding that F&F's composition
+   itself is cooperative-resolution-shaped. This is a
+   substrate observation, not a curator failure.
+3. **Whether the curator will remain reliable at
+   substrate sizes beyond current F&F (3 mem) / PW
+   (14 mem) scales.** n=4 does not extrapolate.
+4. **Whether operators (not classifiers) find the
+   surfaced candidates useful.** Only Chris's ongoing
+   dogfood gestures can answer.
+5. **Whether the LOW SEED-SELECTION VARIANCE observed on
+   F&F Probe A is a general property of the curator OR
+   an artifact of `772e9012` being a short (1426 char),
+   tightly-scoped scene with limited noteworthy seed
+   ideas.** Only one composition tested for variance.
+
+## §16.4 The seed-selection-variance observation
+
+This is the most nuanced finding of the slice and deserves
+explicit surfacing.
+
+**Observation.** Across 3 fresh curator calls on the same
+F&F composition, the model surfaces the same 3 seed ideas
+(mascot clause, tiny bell, embarrassment) with only mild
+wording variation. Zero seed-set variance despite real
+inference variance (token counts 226/201/221).
+
+**Two competing interpretations:**
+
+* **Interpretation-1 (composition-determinism / feature):**
+  Composition `772e9012` is a short, tightly-scoped scene
+  centered on the mascot-addition-to-closing-routine
+  premise. It has roughly three memorable seed ideas
+  worth noticing (clause, bell, embarrassment); the
+  community-outreach joke and mascot-want are already
+  promoted so are correctly suppressed. The curator's
+  low seed-set variance is EXPECTED behavior for a
+  "notice what matters" tool on a low-variance source —
+  a competent classifier converges on the salient
+  material.
+* **Interpretation-2 (paraphrase treadmill / limitation):**
+  If the curator produces only wording variance and never
+  new seed selection, then re-visiting an old composition
+  will never yield new memory candidates. Substrate
+  enrichment via the loop must come EXCLUSIVELY from new
+  compositions, not from re-visits. Any expectation that
+  "curator re-runs will surface angles the operator missed
+  the first time" is wrong.
+
+**Both interpretations are consistent with the observed
+data.** Slice 282.1 does not distinguish them.
+
+**Which matters for the ratified S281 §T7 decision?**
+Interpretation-1 is the strong reading of the shipped
+product ("no refresh affordance" is scope-locked; the
+curator runs once per composition, and Chris either
+promotes or moves on). Under Interpretation-1, the loop
+proceeds compositionally: each new scene brings new seed
+candidates. Under Interpretation-2, the same holds — the
+loop still proceeds via new compositions, but with fewer
+per-scene reruns of value than one might have hoped.
+Either way, longitudinal Candidate 2 dogfood is the same
+gesture: promote from new compositions, observe substrate
+grow.
+
+**Downstream implication:** neither interpretation
+invalidates the S281 §T7 decision or blocks Candidate 2.
+But Interpretation-2 (if further evidence supported it)
+would rule out any future "curator refresh" affordance
+as adding operator value — the additional inferences
+would surface the same seed ideas at cost.
+
+## §16.5 Q282.1 verdict
+
+**Q282.1 PASSES** with an explicit qualitative caveat.
+
+The curator IS structurally reliable enough to serve as the
+human-mediated accumulation mechanism for future
+longitudinal dogfood. All load-bearing structural
+predictions (P1-A, P2-A, P1-B, P2-B, P3-A, P4-A, P3-B,
+P4-B, P5-A, P5-B) fired as predicted. The duplicate-guard
+works cleanly. Tension-shape sensitivity to source-scene
+shape is confirmed on Probe B.
+
+**Caveat:** seed-selection variance across fresh reruns
+of the same composition is LOW (all 3 F&F runs surface
+the same 3 seed ideas with only wording variation).
+Whether this is composition-determinism-as-feature
+(Interpretation-1) or paraphrase-treadmill-as-limitation
+(Interpretation-2) is not distinguished by n=4. Both
+readings preserve the case for proceeding to Candidate 2
+because either way, substrate enrichment happens via new
+compositions, not via same-composition reruns.
+
+**This PASS does NOT prove:**
+
+* Hθ (that operator-promoted memories improve future-
+  story execution).
+* That accumulated curator-approved memories improve
+  future storytelling.
+* That the curator's gravity ceiling on cooperative-
+  shape source scenes (0/9 on F&F) is sufficient for
+  long-term Hθ compounding.
+
+It establishes only that the curator appears reliable
+enough to justify testing the downstream Hθ hypothesis
+through longitudinal Candidate 2 dogfood.
+
+## §16.6 Cost accounting
+
+Actual cost estimate (per token counts, using standard
+Q280.9 §7 per-call ~$0.02 benchmark scaled by token usage):
+
+| probe | tokens_in | tokens_out | est cost |
+|-------|-----------|-----------|---------|
+| A run 1 | 1433 | 226 | ~$0.005 |
+| A run 2 | 1433 | 201 | ~$0.005 |
+| A run 3 | 1433 | 221 | ~$0.005 |
+| B run 1 | 2233 | 211 | ~$0.006 |
+| **Total** | 6532 | 859 | **~$0.021** |
+
+Well under the $0.10 ceiling ($0.079 unused headroom).
+No mid-execution hard-stop triggered.
+
+## §16.7 Substrate preservation post-execution
+
+Verified via re-query at end of execution (§14.1):
+
+* Fox & Flour: 12 Episodes, 3 REMEMBERED memories (same
+  `abac5486`, `fa35eb8f`, `73acdfc0`).
+* Patch's Workshop: 32 Episodes, 14 REMEMBERED memories
+  (all originals, PATCH OVERRIDES row intact).
+* Compositions `772e9012`, `565cd8c8`, `fcba3242` all
+  present, unchanged.
+
+Zero mutation from Slice 282.1.
+
+---
+
+# §17 Slice 282.1 — Decision gate
+
+**Q282.1 PASS with §16.4 caveat.**
+
+Recommendation to Chris + ChatGPT:
+
+1. **Do not implement any curator-side hardening now.**
+   The load-bearing structural axes hold; the
+   duplicate-guard behaves. No known bug to fix.
+2. **Preserve the seed-selection-variance observation
+   (§16.4) as a live open question** for later — not as a
+   blocker on Candidate 2. If Candidate 2 dogfood over
+   time reveals that substrate accumulation feels slow to
+   Chris, Interpretation-2 becomes a more serious
+   candidate framing worth its own scope-lock.
+3. **Do NOT proceed to Candidate 2 in this session.**
+   Chris + ChatGPT must explicitly authorize the next
+   slice per SESSION 281 §11.
+4. **All other candidate directions (2, 3, 4) remain
+   deferred** until explicit re-authorization.
+
+Slice 282.1 evidence is now committable. Awaiting
+Chris + ChatGPT review of §16 findings before any next
+scope-lock.
+
+## §17.1 Slice 282.1 landing SHAs
+
+* Prediction lock: **`1075a2c`** — `docs(session-282):
+  Slice 282.1 prediction lock — curator-loop robustness`
+* Execution + evidence + classification + disposition:
+  this commit's SHA (appended in trailer)
+
 

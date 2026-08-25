@@ -1,0 +1,52 @@
+{
+  "candidates": [
+    {
+      "body": "Ruby added a mascot clause to the closing routine: the bakery cannot be locked until the mascot is confirmed to be outside as well.",
+      "kind": "event",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Creates a practical rule that can be tested or complicated once a mascot actually exists."
+    },
+    {
+      "body": "Tyson proposed installing a tiny bell to warn anyone who reaches for the bakery door without thinking.",
+      "kind": "action",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Preserves a recurring gag or a possible future bakery fixture tied to the lockout."
+    },
+    {
+      "body": "Ruby said she would be deeply embarrassed if the eventual mascot proves better at closing the bakery than she and Tyson are.",
+      "kind": "dialogue_callback",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Sets up an easy comic payoff if the mascot becomes unexpectedly competent."
+    }
+  ],
+  "substrate_summary": {
+    "prior_episodes_used": 12,
+    "existing_memories_used": 3,
+    "cast_count": 2,
+    "dialogue_chars": 1426
+  },
+  "generated_at": "2026-08-25T02:39:05.737815+00:00",
+  "model": "gpt-5.6-terra",
+  "cache": {
+    "hit": false,
+    "ttl_seconds": 1800
+  },
+  "tokens_input": 1433,
+  "tokens_output": 201,
+  "_probe_meta": {
+    "probe": "q282_1",
+    "composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+    "run_index": 2,
+    "use_cache": false,
+    "executor_sha": "1075a2cbc1f768fb257b6d2ff4af92d58bdf3089"
+  }
+}

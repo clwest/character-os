@@ -1,0 +1,43 @@
+{
+  "candidates": [
+    {
+      "body": "Patch and Rivet agreed to test the agent on a real project and shut it down if it offers vague advice rather than noticing something they missed.",
+      "kind": "promise",
+      "witnesses": [],
+      "narrative_gravity_note": "Establishes a concrete trial and failure condition for the agent\u2019s next appearance."
+    },
+    {
+      "body": "Patch gave the agent a narrow role: reviewing projects by asking what they are trying to prove, what changed, and what result would count.",
+      "kind": "world_detail",
+      "witnesses": [],
+      "narrative_gravity_note": "Defines the agent\u2019s intended methodology and creates room for it to prove useful, become intrusive, or be held to scope."
+    },
+    {
+      "body": "Patch accepted that the agent may remind him later of recommendations he ignored, calling the prospect painful but fair.",
+      "kind": "promise",
+      "witnesses": [],
+      "narrative_gravity_note": "Creates a future callback in which the agent can produce an inconvenient record of Patch\u2019s rejected advice."
+    }
+  ],
+  "substrate_summary": {
+    "prior_episodes_used": 32,
+    "existing_memories_used": 14,
+    "cast_count": 2,
+    "dialogue_chars": 1498
+  },
+  "generated_at": "2026-08-25T02:39:13.829793+00:00",
+  "model": "gpt-5.6-terra",
+  "cache": {
+    "hit": false,
+    "ttl_seconds": 1800
+  },
+  "tokens_input": 2233,
+  "tokens_output": 211,
+  "_probe_meta": {
+    "probe": "q282_1",
+    "composition_id": "fcba3242-097f-4355-b47b-669c48be43ed",
+    "run_index": 1,
+    "use_cache": false,
+    "executor_sha": "1075a2cbc1f768fb257b6d2ff4af92d58bdf3089"
+  }
+}
