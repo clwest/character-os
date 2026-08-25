@@ -2676,8 +2676,9 @@ safety is now established.
 ## §22.10 Slice 282.2 recalibration landing SHA
 
 * Zero-spend recalibration + T0 continuity classification
-  + revised criteria: **this commit's SHA** (appended
-  in trailer).
+  + revised criteria: **`1e2c4c2`** — `docs(session-282):
+  Slice 282.2 zero-spend methodology recalibration`
+* Trailer (this commit) records the landing SHA above.
 * No new experiment data. No new provider spend.
 * T0 raw artifact unchanged
   (`docs/design/session282_experiment_data/q282_2_v1_baseline.json`).
