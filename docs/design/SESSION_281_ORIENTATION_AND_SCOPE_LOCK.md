@@ -4600,3 +4600,235 @@ prompt-side fix is justified by current evidence.
 
 **Awaiting Chris + ChatGPT review** to authorize SESSION
 281 closure per §T8 mission-check.
+
+---
+
+# §U — SESSION 281 CLOSED
+
+Chris + ChatGPT ratified Q281.3-π. SESSION 281 is CLOSED.
+
+Closeout SHA: this commit
+(pre-closeout HEAD: `44938b6` — the Q281.3-π trailer).
+
+## §U1 Ratified final product decisions
+
+1. **No v1 "Where could this story go next?" change now.**
+   Its output distribution is substrate-sensitive rather
+   than generator-broken; a prompt tweak would be near-no-op
+   on rich substrates and would mask thin-substrate
+   variance rather than address it.
+2. **No `dialogue_scene` synthesis change now.** The
+   primitive handled both strong shape (α TREATMENT) and
+   D+C mixed-shape topics (ξ) cleanly when the substrate
+   carries them.
+3. **No design/implementation of Hη (SPA-side rewrite
+   affordance) now.** Fails the operator-vocabulary
+   discipline test; shifts responsibility onto the operator.
+4. **Q281.3-ο (verb-tense ablation) deferred.** Its answer
+   does not gate any current product decision.
+5. **Story-execution / substrate SHAPE finding preserved
+   as a legitimate future research direction.** Recorded
+   for SESSION 282 orientation without pre-authorization.
+6. **SESSION 281's primary mission — turn the validated
+   storyteller → curator → operator → durable NarrativeMemory
+   → future-story loop into a usable operator-facing
+   product — is COMPLETE.**
+
+## §U2 Careful Hθ wording (do NOT reduce to "more memories")
+
+The substrate finding is:
+
+* Rich narrative substrate INCREASES the reliability of the
+  generator + primitive combination.
+* Thin substrate has HIGHER VARIANCE (~7% weak-CONTROL on
+  F&F, 0% on Patch's Workshop in the n=30 v1 sample).
+* What matters most about substrate is SHAPE, potentially
+  involving interaction among: character-attributed past
+  events, Episode/topic shape, unresolved threads,
+  consequences, discoveries, recurring artifacts, character
+  wants, cast/business-brief shape, structurally-aligned
+  NarrativeMemory, continuity richness.
+* Patch's Workshop differs from Fox & Flour across several
+  of these axes; none was isolated.
+
+The curator loop (Slice 281.1/281.2) MAY organically improve
+that substrate over time — it emits character-attributed
+event-shaped memory bodies by construction. But that
+hypothesis is not yet proven to be sufficient. **Do NOT
+state the curator alone has been proven to fix future-story
+quality.**
+
+## §U3 Explicit hypothesis status at close
+
+| ID | Hypothesis | Final SESSION 281 status |
+|----|-----------|--------------------------|
+| Hα | dialogue_scene wrong primitive for off-stage topics | Weakened — same primitive handles D+C on rich substrate cleanly (ξ). |
+| Hβ-strict | v1 requires A+B+C on every suggestion | Rejected as scope; would suppress legitimate variety. |
+| Hβ-permissive | v1 soft preference for dramatizable shape | Rejected now; masks thin substrate; near-no-op on rich. |
+| Hγ | Memory-framing wording (audit §N6.2) | Deferred — supply-side pressure appears dominant. |
+| Hδ | "Use them" → "may cite" | Deferred. |
+| Hε | `top_k=0` default | Undesirable — would break Q280.8 callback loop. |
+| Hζ | Threshold retrieval vs top-k | Deferred; ξ retrieved 1 aligned memory so threshold cut-off unclear. |
+| Hη | SPA-side rewrite affordance on pick | Rejected — fails operator-vocabulary discipline. |
+| Hθ | Substrate SHAPE is a first-class product concern | Preserved as future direction; NOT proven that curator loop alone is sufficient. |
+| Hι | Generator adapts to substrate density | Deferred; premature; complex. |
+| Hκ | Cast business-brief SHAPE (experimental vs service) may carry major load | New from ξ; testable via ablation; deferred. |
+| Hλ | Topic verb tense (present-ongoing vs past-report) may be cleanest single lever | New tentative from ξ; Q281.3-ο would probe; deferred. |
+
+## §U4 Explicit deferred items (preserve for future sessions)
+
+Not lost. Recorded here so SESSION 282+ orientation can
+carry them forward without re-deriving from primary sources.
+
+**Story-execution / substrate research (from Slice 281.3
+investigation):**
+
+* Q281.3-β — memory-presence pressure isolation
+* Q281.3-γ — memory-framing wording swap
+* Q281.3-ο — topic verb-tense ablation
+* Longitudinal Fox & Flour dogfood — whether curator
+  substrate accumulation organically improves distribution
+* Substrate-shape decomposition (which axis carries the load)
+* Hκ cast-brief-shape ablation
+* Hι substrate-adaptive generator design
+* Hβ-permissive if later evidence warrants
+
+**Independent SESSION 280 carry-forwards (preserved from
+handoff §7):**
+
+* Q280.9 curator variance (§7.3) — n=1 curator run to date
+* Curator on tension-rich scenes (§7.4) — matched probe on
+  Patch's Workshop `4598fcfa` not run
+* Semantic-2 / epistemic-asymmetry follow-ups (§7.1) —
+  Q280.4i-3, Q280.4i-5, U-3a, U-4, U-6
+* §72.7 verifier-boundary false-positive on
+  `Episode.operator_topic`
+* SESSION 279 Finding 4c visual-storytelling limitation
+* `docs/design/CONTENT_FORMAT_BACKLOG.md` — 20 formats
+
+## §U5 What shipped (SESSION 281)
+
+* **Slice 281.1** — backend curator service + endpoint
+  `GET /api/compositions/<id>/suggested-memories/`
+  * Primary SHA `f2956d1`, trailer `b7fdb71`
+  * Service: `shell/apps/memory/services.py::suggest_memories_from_composition`
+  * Endpoint: `shell/apps/compositions/views.py::CompositionViewSet.suggested_memories`
+  * 30-min composition-scoped cache; typed
+    `SuggestMemoriesUpstreamError`; empty-substrate
+    short-circuit; NEVER writes NarrativeMemory
+* **Slice 281.2** — operator-facing curator cards inside
+  `NarrativeMemoryPromotePanel`
+  * Primary SHA `c394a89`, trailer `ab3561d`
+  * Above the existing "What changed?" textarea
+  * "A few ideas from what just happened. / Remember the
+    ones that might matter later."
+  * Cards: body + optional natural hint + `[Remember this]`
+    · Edit · Skip
+  * `[Remember this]` posts body + `witnessed_by:[]`
+    ONLY — model-authored kind/witnesses/hint NEVER
+    persist
+  * Divider `Or write your own:` preserves the existing
+    manual path byte-identically
+  * No refresh affordance; empty/error silent; 30-min
+    stale time; no polling
+
+## §U6 What was dogfooded
+
+* Chris opened composition
+  `772e9012-4d26-4f93-a50c-158b4e8a42f1` (Fox & Flour,
+  Episode `eb47350e-…`) in the SPA.
+* Curator returned 3 candidates. Chris promoted exactly
+  one via `[Remember this]`:
+  * `NarrativeMemory 73acdfc0-44a1-40a0-abdc-e4f8069f6924`
+  * body: "Ruby still wants Fox & Flour to have a
+    welcoming mascot for the neighborhood."
+  * `kind=event`, `status=remembered`, `witnesses=[]`,
+    `source_composition=772e9012`
+* Chris picked an existing v1 "Where could this story go
+  next?" suggestion verbatim and produced composition
+  `565cd8c8-2cf7-47e6-9f01-f57103193648` (Episode
+  `f4faa13b-…`) — this became the Slice 281.3 investigation
+  specimen.
+* Chris rejected all 3 curator suggestions produced on
+  `565cd8c8` — the human-in-the-loop boundary worked as
+  designed; procedural canon did not accumulate.
+
+## §U7 Test state at close
+
+Backend from `shell/`:
+
+```
+python -m pytest apps/universe/tests/ apps/memory/tests/ apps/compositions/tests/
+→ 1504 passed / 2 failed (pre-existing K6.4 mock-drift; out of scope per handoff §8)
+```
+
+Frontend:
+
+```
+cd web && npx vitest run
+→ 57 files / 743 tests passed
+```
+
+Delta from SESSION 281 orientation baseline: **+29 backend
+tests, +14 frontend tests, zero new regressions.** Both
+pre-existing failures unrelated to SESSION 281 substrate
+(K6.4 test-mock drift against `run_verifier` attribute
+that no longer exists on `character_os.dialogue_synthesis`).
+
+## §U8 Preserved substrate — MUST remain intact
+
+**Fox & Flour Bakery** (`1a0af807-dd6a-47cd-bfaa-3d088f1c105f`):
+
+| memory id | kind | body | source |
+|---|---|---|---|
+| `abac5486-6404-411b-ad42-54c9884b980f` | event | "Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need." | SESSION 280 Q280.7 |
+| `fa35eb8f-098d-4fbf-86a3-3e38961c059e` | dialogue_callback | "Tyson joked that the mascot might be left inside doing community outreach after closing." | SESSION 280 Q280.8 |
+| `73acdfc0-44a1-40a0-abdc-e4f8069f6924` | event | "Ruby still wants Fox & Flour to have a welcoming mascot for the neighborhood." | SESSION 281 Slice 281.3 dogfood |
+
+All three `status=remembered`, `archived_at=NULL`,
+`witnesses=[]` (whole-cast), embedding populated. Do NOT
+archive, edit, supersede, or normalize any of them.
+
+**Patch's Workshop** (`56d16b63-652e-4f54-bc7e-39114bbfc4c5`)
+substrate unchanged from SESSION 280 close: 32 Episodes, 14
+`kind=event` memories including the canonical PATCH OVERRIDES
+row (`c86d4902-…`) and the Agent-arc cluster.
+
+Compositions `565cd8c8` (weak dogfood specimen) and
+`772e9012` (strong reference specimen) preserved as
+audit-doc references for future dogfood comparisons.
+
+## §U9 SESSION 281 SHA index
+
+Every SESSION 281 commit chain, in landing order:
+
+* Orientation + scope-lock: **`ce4e490`** — trailer `66c8899`
+* Slice 281.1 backend curator: **`f2956d1`** — trailer `b7fdb71`
+* Slice 281.2 operator-facing cards: **`c394a89`** — trailer `ab3561d`
+* Slice 281.3 dogfood audit: **`370debd`** — trailer `4a8390d`
+* Q281.3-α topic-grammar probe: **`fbe1bef`** — trailer `631c1c9`
+* Q281.3-ε v1 topic-shape sampling: **`02e7dbd`** — trailer `39d9d6c`
+* Q281.3-ζ Patch's Workshop sampling: **`927cdce`** — trailer `1dfa0b9`
+* Q281.3-ξ Patch mixed-shape dialogue: **`606bb07`** — trailer `ded6e31`
+* Q281.3-π design synthesis: **`d76d5d5`** — trailer `44938b6`
+* **§U closeout: this commit's SHA (appended in trailer)**
+
+## §U10 Total provider spend across SESSION 281
+
+* Slice 281.1 real-provider verification: ~$0.02
+* Q281.3-α topic-grammar paired probe: ~$0.26
+* Q281.3-ε v1 topic-shape sampling: ~$0.036
+* Q281.3-ζ Patch's Workshop sampling: ~$0.070
+* Q281.3-ξ Patch's Workshop dialogue: ~$0.078
+* **Total: ~$0.46**
+
+## §U11 Session closed
+
+SESSION 281 is CLOSED. Slice 281.2 curator surface is
+shipped and demonstrably operating in production. The
+story-execution / substrate SHAPE finding is preserved for
+future scope-lock consideration but not pre-authorized as
+next-session work.
+
+SESSION 282 handoff created at
+`docs/design/SESSION_282_HANDOFF.md`.
