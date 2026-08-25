@@ -4201,3 +4201,402 @@ Trailer commit:                                   <appended in the same commit a
 
 **Do NOT implement any production change until Chris +
 ChatGPT review.**
+
+---
+
+# Q281.3-π — Design synthesis + product decision (DESIGN-ONLY)
+
+**Type: DESIGN-ONLY. No probes. No provider calls. No code
+changes. Zero spend.**
+
+Authorization: Chris scoped Q281.3-π after Q281.3-ξ to step
+back from individual prompt levers and synthesize the product
+implications of the accumulated α + ε + ζ + ξ evidence. This
+section decides whether a production fix is justified at all
+— not which fix would be optimal.
+
+## §T1 Accumulated evidence table
+
+| probe | falsifiable question | verdict | cost | key finding |
+|-------|----------------------|---------|------|-------------|
+| Q281.3-α | Does topic grammar alone change execution at fixed substrate? | YES | ~$0.26 | Same everything → off-stage past-tense topic collapses to procedural; on-stage cast-verb-plus-complication topic produces event. |
+| Q281.3-ε | Does v1 predominantly emit weak topics? | NO | ~$0.036 | Trimodal on F&F: 53% strong (A+B+C), 27% mixed (D+C), 7% weak-CONTROL, 13% ambiguous. ORIG bad shape is real but rare. |
+| Q281.3-ζ | Is v1 distribution generator-stable across Universes? | NO | ~$0.070 | Substrate-sensitive. Patch's Workshop 100% complication vs F&F 80%; 0% weak-CONTROL vs 7%; dense character-driven callbacks vs lexical adjacency. |
+| Q281.3-ξ | Does rich substrate protect a D+C off-stage-subject topic from procedural collapse? | YES (n=1) | ~$0.078 | Patch's Workshop D+C topic produced 12-turn event-shape scene on attempt-1; memory absorbed naturally; corrective did not fire. |
+| **Total** | — | — | **~$0.44** | — |
+
+## §T2 What is now proven
+
+* Topic grammar (past-tense off-stage vs on-stage-verb-plus-complication) CAN drive execution quality at fixed substrate. Fox & Flour n=1 paired, α.
+* v1 output shape distribution is substrate-sensitive, NOT generator-stable. n=30 total (15 per Universe), ζ.
+* Rich, character-attributed, event-shaped substrate CAN protect an off-stage-initiator topic from procedural collapse. n=1, ξ.
+* Retrieved memory alignment matters for callback naturalism: structural alignment (memory shape ↔ scene shape) reads absorbed; lexical alignment only (topic keyword overlap without structural fit) reads inserted. Contrast α CONTROL (mascot mid-scene, inserted) with α TREATMENT + ξ (cooperation / workshop-agent memories absorbed structurally).
+* v1 curator-generated memories from Slice 281.1/281.2 are character-attributed and event-shaped by construction — the curator's real-provider verification produced candidates like "Ruby amended the closing routine with a mascot clause…" (§L6 Slice 281.1 evidence). The curator naturally emits SHAPE-CORRECT memories.
+* Zero production changes made across all four probes. Both SESSION 280 Fox & Flour memories + mascot memory + all 14 Patch's Workshop memories unmodified end-to-end.
+
+## §T3 What remains ambiguous
+
+* Multi-factor causation on Q281.3-ξ. Memory count, memory shape, cast-brief shape, universe-brief absence, topic verb tense are all correlated with the strong outcome; none isolated.
+* Whether Q281.3-ξ's result reproduces on other Patch's Workshop D+C topics (n=1).
+* Whether Fox & Flour with more accumulated memories would similarly protect off-stage topics. Not tested — would require operator work (organic accumulation) or substrate mutation (out of scope).
+* Whether topic verb tense specifically (Hλ) is the cleanest single lever. Q281.3-ο would test but is not authorized here.
+* Whether operators reliably pick worst-case suggestions or Chris's `565cd8c8` selection was bad luck. Only n=1 operator dogfood.
+
+## §T4 Test the interpretation: "Good future stories grow out of good story history"
+
+Chris + ChatGPT's current reading. **Approximately correct
+with nuance — "help" is more accurate than "grow out of."**
+
+**Evidence FOR:**
+
+* Q281.3-ξ: rich substrate protected the D+C topic from
+  procedural collapse when nothing else was different.
+* Q281.3-ζ: Patch's Workshop's 100% complication vs F&F's
+  80% correlates with substrate density and shape.
+* Q281.3-ξ retrieved a structurally-aligned memory
+  (workshop-agent notes) that supplied usable dramatic
+  substrate for Patch's partial-memory arc.
+
+**Evidence AGAINST (or complicating):**
+
+* Q281.3-α TREATMENT succeeded on Fox & Flour's THIN
+  substrate — proving substrate is not a HARD requirement
+  for event-shape.
+* Q281.3-ε: 53% of Fox & Flour's v1 suggestions are
+  already strong-shape without any substrate enrichment.
+  The generator produces good topics from thin substrate
+  more often than not.
+* Q281.3-ξ used only 1 retrieved memory out of Patch's
+  Workshop's 14; the other 13 didn't contribute. Volume
+  is not the axis.
+
+**Refined interpretation:**
+
+Rich substrate INCREASES the reliability of the generator +
+primitive combination. Thin substrate has HIGHER VARIANCE —
+it hits worst-case shapes more often (~7% weak-CONTROL on
+F&F, 0% on Patch's Workshop) — but is not deterministically
+bad. What matters most about substrate is SHAPE (character-
+attributed event bodies + on-stage-action episode titles +
+experimental cast briefs) more than COUNT.
+
+The curator loop (Slice 281.1/281.2) is already the organic
+mechanism for accumulating shape-correct substrate over time.
+Every curator-noticed detail Chris promotes becomes a
+character-attributed event memory that structurally aligns
+with future scene retrieval.
+
+## §T5 Option-by-option assessment
+
+### OPTION A — Hβ-permissive (v1 soft preference for dramatizable shape)
+
+* **Evidence for:** F&F has 7% weak-CONTROL rate; a soft
+  preference would push those toward stronger shape.
+* **Evidence against:** Patch's Workshop is already at
+  100% complication and 60% strict-strong without any
+  prompt change; Hβ-permissive would be a near-no-op on
+  rich substrates. It targets a symptom (thin-substrate
+  distribution has more weak topics), not the cause.
+* **Risk of suppressing legitimate mixed-shape topics:**
+  meaningful. Q281.3-ξ proved a D+C off-stage-subject
+  topic can produce a strong event-shape scene on rich
+  substrate. Filtering these out at the generator would
+  remove ~27-40% of what v1 emits, including topics that
+  succeed downstream.
+* **Root cause vs symptom mask:** SYMPTOM MASK. The root
+  differential is substrate; Hβ-permissive attempts to
+  correct at the wrong layer.
+* **Operator vocabulary discipline check:** passes
+  (invisible to operator — a prompt-side softening).
+* **Verdict: NOT recommended now.** Wrong scope of
+  intervention.
+
+### OPTION B — Hη (SPA-side rewrite affordance on pick)
+
+* **Operator mental model:** the operator picks a
+  suggestion, then optionally asks the system to
+  "make it more scene-shaped." This requires the operator
+  to understand what "scene-shaped" means — a research
+  concept.
+* **Should normal users ever need to understand this
+  distinction?** NO. Q281.3-π's important product
+  question explicitly names "dramatizability" as
+  vocabulary the operator should never need.
+* **Shifts responsibility onto operator:** yes,
+  implicitly. Hη says "the system might have given you a
+  weak suggestion, please fix it."
+* **Situations where useful:** rare and narrow. Operators
+  who want to reroll a specific pick could just re-open
+  the "Where could this story go next?" surface for
+  Different Ideas (already shipped on v1 UX).
+* **Operator vocabulary discipline check:** FAILS. Would
+  require operator-facing copy that describes the
+  distinction we researched.
+* **Verdict: NOT recommended now.** Wrong locus of
+  responsibility + leaks implementation vocabulary.
+
+### OPTION C — Hθ (substrate richness as deeper product direction)
+
+* **Evidence:** strongest of the five options. Q281.3-ζ +
+  ξ together produce the cleanest signal — same generator,
+  same primitive, different substrate → different
+  outcomes.
+* **Relation to the shipped curator loop:** the curator
+  loop IS the substrate-enrichment mechanism.
+
+  ```
+  story happens (composition renders)
+    → curator notices potentially important details
+    → human decides what matters (Slice 281.2 [Remember this])
+    → story history grows (NarrativeMemory persistence)
+    → v1 next-Episode suggestions have richer material
+    → future compositions have richer retrieved memories
+    → curator has more character-attributed events to abstract from
+  ```
+
+  This loop is closed and shipped. Every completed cycle
+  organically improves the substrate that Q281.3-π says
+  determines future-story shape.
+* **Memory quantity vs useful narrative substrate
+  SHAPE distinction:** critical. The curator by
+  construction emits character-attributed event bodies
+  (§L6 Slice 281.1 real-provider evidence: "Ruby amended
+  the closing routine…", "Tyson proposed installing a
+  tiny bell…"). It doesn't just add memory count; it adds
+  SHAPE-CORRECT memories.
+* **Operator vocabulary discipline check:** passes.
+  Operators see "Remember this" cards + accumulated
+  "Story history" — no substrate/dramatizability
+  vocabulary anywhere.
+* **What Hθ requires implementing today:** nothing new.
+  The shipped Slice 281.2 curator surface already
+  activates this loop. Continued operator dogfood is the
+  next-step evidence path.
+* **Verdict: STRONGLY supported as the correct product
+  framing. But it requires no new implementation now —
+  the mechanism is already shipped.**
+
+### OPTION D — Hι (generator adapts to substrate quality/density)
+
+* **Potential value:** could improve thin-substrate
+  outcomes without operator burden.
+* **Complexity:** significant. Would require substrate-
+  density signals (which axes? memory count, episode
+  count, episode-title grammar, cast-brief shape,
+  universe-brief presence?) and per-shape prompt
+  variants. Would double or triple the v1 service's
+  code footprint.
+* **Evidence justifying it:** direct evidence is thin.
+  The ζ + ξ pattern is consistent with Hι but doesn't
+  prove it's the right shape of intervention. Hθ
+  provides a simpler product path that reaches the same
+  outcome via organic substrate accumulation.
+* **Operator vocabulary discipline check:** passes
+  (invisible to operator).
+* **What signals would even characterize thin vs rich?**
+  Unknown. Memory count alone is confounded (ξ used 1 of
+  14 memories); shape is hard to signal programmatically.
+* **Verdict: NOT recommended now.** Legitimate future
+  consideration IF operator dogfood over time reveals
+  Hθ's organic accumulation is too slow to produce
+  operator satisfaction.
+
+### OPTION E — NO FIX NOW
+
+* **Ship discipline:** SESSION 281's mission — turn the
+  storyteller → curator → operator → memory → future-
+  story loop into the smallest usable operator-facing
+  product — is complete. Slice 281.2 shipped and was
+  dogfooded by Chris.
+* **Curator loop already provides the organic self-
+  improvement path Hθ describes.**
+* **Any prompt-side fix (A, B, D) would be premature
+  optimization based on n=1 operator dogfood + n=15 v1
+  samples per Universe + n=1 rich-substrate dialogue
+  probe.** Four probes at ~$0.44 combined is enough to
+  produce hypotheses; not enough to justify a production
+  change.
+* **Operator vocabulary discipline check:** passes
+  (no operator-facing change).
+* **Verdict: STRONGLY recommended.** Aligns with Hθ
+  reading, preserves SESSION 281 mission scope, defers
+  premature optimization.
+
+## §T6 Would Q281.3-ο materially change today's decision?
+
+**NO. Recommend deferring Q281.3-ο.**
+
+Q281.3-ο (verb-tense ablation) would tell us whether Hλ
+(present-tense verb) or Hβ (subject grammar) is the cleaner
+lever. Both are prompt-side levers. Today's recommended
+decision (§T7) is "no synthesis-side fix now" regardless of
+which lever is cleaner. The ~$0.20-$0.30 spend on Q281.3-ο
+would produce evidence that today doesn't gate any product
+choice.
+
+Q281.3-ο becomes worth running IF:
+
+* A future session decides to authorize a synthesis-side
+  fix (Hβ or Hλ), AND
+* The choice between "reshape subject grammar" and
+  "shift verb tense" is a real design decision.
+
+Neither condition holds today.
+
+## §T7 Recommended product decision
+
+**Close SESSION 281 with NO synthesis-side fix. Adopt Hθ
+as the future product direction — but implement no new
+mechanism now because the shipped Slice 281.2 curator loop
+IS the mechanism.**
+
+Concretely:
+
+1. **v1 next-Episode suggestions:** NO CHANGE. The
+   generator's substrate-sensitive distribution is
+   real; changing the prompt would mask thin substrate
+   rather than address it, and would risk suppressing
+   legitimate mixed-shape topics that succeed downstream
+   on rich substrate (Q281.3-ξ).
+2. **`dialogue_scene` synthesis:** NO CHANGE. The
+   primitive handles both strong and D+C mixed-shape
+   topics well on rich substrate. On thin substrate it
+   can collapse — but the correct fix is substrate
+   enrichment (Hθ), not primitive redesign (Hα) or
+   prompt filtering (Hβ).
+3. **Retrieval / memory framing:** NO CHANGE. The
+   §N6.2 imperative "Use them" wording is mildly
+   asymmetric vs canon but is not the dominant channel;
+   supply-side retrieval alignment (Q281.3-ξ vs α)
+   carries more of the load. Q281.3-γ + β remain
+   deferred; not blocking.
+4. **Hη (SPA rewrite affordance):** DO NOT DESIGN.
+   Fails the operator-vocabulary discipline test.
+5. **Hι (substrate-adaptive generator):** DO NOT DESIGN.
+   Premature; Hθ produces the same outcome via a simpler
+   path.
+6. **Slice 281.2 curator surface:** LEAVE IN PLACE
+   AS SHIPPED. This is the substrate-enrichment mechanism
+   Hθ relies on. Continued operator dogfood will produce
+   evidence about whether organic accumulation is
+   sufficient.
+
+## §T8 SESSION 281 mission-check
+
+**Verdict: SESSION 281 should close.**
+
+Original mission from SESSION_281_HANDOFF §1:
+
+> "Turn the validated storyteller → curator → operator →
+> memory → future-story loop into the smallest usable
+> operator-facing product."
+
+Achieved:
+
+* Slice 281.1 shipped the backend curator service +
+  endpoint (§L1-§L12).
+* Slice 281.2 shipped the operator-facing curator cards
+  (§M1-§M14).
+* Chris dogfooded the shipped loop against Fox & Flour
+  composition `772e9012` and promoted one memory
+  (`73acdfc0` mascot) to durable story history.
+* The loop is now demonstrably operating in production
+  (Slice 281.3 §N1 evidence).
+
+The story-execution finding that emerged from that dogfood
+is a **legitimate next-session research/product mission,
+not part of SESSION 281's necessary closure.** The Q281.3-α
++ ε + ζ + ξ investigation has produced enough diagnostic
+evidence to inform future scope-lock decisions without
+requiring further probes.
+
+**Continued story-shape experimentation would be
+next-session work, not SESSION 281 closure work.**
+
+## §T9 Proposed next-session mission (Session 282+)
+
+Not authorization — proposal for Chris + ChatGPT scope-lock
+consideration.
+
+**Observational hypothesis test: "Does the shipped curator
+loop organically improve future-story shape for a young
+Universe as it accumulates operator-promoted memories?"**
+
+Approach:
+
+1. Continue routine operator dogfood on Fox & Flour (or
+   other young Universes). Promote memories via Slice
+   281.2 as they naturally warrant.
+2. Periodically re-run the Q281.3-ε distribution probe
+   on Fox & Flour (cost per rerun ~$0.036) to check
+   whether the trimodal distribution shifts toward
+   Patch's Workshop's shape as substrate grows.
+3. Record actual operator satisfaction with produced
+   stories over multiple compositions. Prefer real
+   dogfood signal over synthetic classification.
+4. IF after 3-6 compositions of accumulated curator work
+   the F&F distribution shifts materially toward strong
+   shape → Hθ is validated; no synthesis-side
+   intervention needed.
+5. IF the distribution does NOT shift materially → Hι
+   (substrate-adaptive generator) or Hβ-permissive
+   becomes a legitimate future consideration with real
+   evidence backing.
+
+This mission requires no new implementation. It's
+observational + patience.
+
+**Alternative next-session mission (unrelated to story
+execution):** address any of the SESSION 281-deferred
+items — Q280.9 curator variance, curator on tension-rich
+scenes, or the numerous SESSION 280 §7 deferred findings.
+Chris + ChatGPT to choose priority.
+
+## §T10 Explicit items that should NOT be implemented now
+
+* v1 next-Episode suggestion prompt changes (Hβ-strict,
+  Hβ-permissive, Hλ)
+* `dialogue_scene` synthesis prompt changes
+* Narrative-shape menu additions or reshaping
+* Memory-framing wording changes (Hδ)
+* Retrieval `top_k` or threshold changes (Hε, Hζ)
+* SPA-side "make it scene-shaped" affordance (Hη)
+* Substrate-adaptive generator (Hι)
+* Cast business-brief edits (Hκ requires substrate
+  mutation)
+* Universe-brief edits or gating
+* Any change to Ruby / Tyson / Patch / Rivet identities
+* Any modification to the SESSION 280 Fox & Flour
+  memories or the mascot memory promoted during Slice
+  281.3 dogfood
+* Curator prompt changes (Slice 281.1 curator behavior
+  is validated)
+* Curator UI expansion (Slice 281.2 UI is scope-locked;
+  no refresh, no kind/witness controls, no
+  automatic promotion)
+* Q281.3-ο verb-tense ablation (deferred per §T6)
+* Q281.3-β memory-presence pressure probe (deferred per
+  Chris's earlier Q281.3-ε authorization; not necessary
+  for current decision)
+* Q281.3-γ memory-framing wording swap (deferred, lower
+  priority than β)
+
+## §T11 Q281.3-π landing SHA
+
+```
+Design synthesis + audit doc landing SHA: <filled on next commit>
+Trailer commit:                            <filled on next commit>
+```
+
+## §T12 Q281.3-π decision-gate summary
+
+**Product-level conclusion:** the story-execution finding
+is real but its correct product response is to trust the
+already-shipped Slice 281.2 curator loop as the organic
+substrate-enrichment mechanism. No synthesis-side or
+prompt-side fix is justified by current evidence.
+
+**Do NOT implement any production change.**
+
+**Awaiting Chris + ChatGPT review** to authorize SESSION
+281 closure per §T8 mission-check.
