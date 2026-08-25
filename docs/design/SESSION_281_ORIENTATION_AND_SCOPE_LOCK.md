@@ -4584,8 +4584,8 @@ Chris + ChatGPT to choose priority.
 ## §T11 Q281.3-π landing SHA
 
 ```
-Design synthesis + audit doc landing SHA: <filled on next commit>
-Trailer commit:                            <filled on next commit>
+Design synthesis + audit doc landing SHA: d76d5d5
+Trailer commit:                            <appended in the same commit as this update>
 ```
 
 ## §T12 Q281.3-π decision-gate summary
