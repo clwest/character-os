@@ -2732,8 +2732,8 @@ question) separately.
 ## §O15 Q281.3-α landing SHA
 
 ```
-Probe evidence + script + audit doc landing SHA: <filled on next commit>
-Trailer commit:                                   <filled on next commit>
+Probe evidence + script + audit doc landing SHA: fbe1bef
+Trailer commit:                                   <appended in the same commit as this update>
 ```
 
 ## §O16 Q281.3-α decision gate
