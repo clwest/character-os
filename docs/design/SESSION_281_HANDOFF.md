@@ -350,7 +350,7 @@ parallel files unless a new file is genuinely warranted.
 
 ### Production code
 
-- HEAD at handoff: `[recorded on final closeout commit]`.
+- HEAD at handoff: `675b5c4` (plus trailer).
 - v1 "Where could this story go next?" surface: LIVE at
   commit `25b3168` + `d7931b1` SHA trailer. Files:
   - Backend service:
@@ -739,7 +739,7 @@ baseline):
 
 - v1 UX implementation: `25b3168`
 - v1 implementation SHA trailer: `d7931b1`
-- SESSION 280 final closeout: `[recorded on closeout commit]`
+- SESSION 280 final closeout: `675b5c4`
 
 ### 11.3 Provider cost baseline
 
@@ -755,8 +755,9 @@ baseline):
 
 ## §12 Closeout
 
-SESSION 281 opens with a clean tree at HEAD **`[final
-closeout commit SHA recorded on landing]`**. All SESSION
+SESSION 281 opens with a clean tree at HEAD **`675b5c4`**
+(plus a trailer commit recording SHAs across both closeout
+artifacts). All SESSION
 280 conclusions are durable in
 `docs/design/SESSION_280_EPISTEMIC_ASYMMETRY_AUDIT.md`.
 

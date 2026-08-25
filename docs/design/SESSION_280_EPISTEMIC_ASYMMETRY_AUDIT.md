@@ -9432,7 +9432,7 @@ Every implementation followed:
 | Q280.8 SHA trailer | `3e675bb` |
 | v1.5 curator UX design (§79) | `495034e` |
 | v1.5 design SHA trailer | `d24c127` |
-| **SESSION 280 final closeout** (§80) | `[recorded on commit]` |
+| **SESSION 280 final closeout** (§80) | `675b5c4` |
 
 ### 80.K SESSION 280 CLOSEOUT MARKER
 
