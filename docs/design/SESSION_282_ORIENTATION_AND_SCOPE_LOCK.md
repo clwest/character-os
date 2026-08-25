@@ -1262,6 +1262,8 @@ scope-lock.
 * Prediction lock: **`1075a2c`** — `docs(session-282):
   Slice 282.1 prediction lock — curator-loop robustness`
 * Execution + evidence + classification + disposition:
-  this commit's SHA (appended in trailer)
+  **`51b0ff3`** — `feat(session-282): Slice 282.1
+  EXECUTED — curator-loop robustness`
+* Trailer (this commit) records the landing SHAs above.
 
 
