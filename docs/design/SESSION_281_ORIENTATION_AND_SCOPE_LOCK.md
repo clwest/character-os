@@ -3254,8 +3254,8 @@ authorization — "Memory work is deferred.")*
 ## §Q15 Q281.3-ε landing SHA
 
 ```
-Probe evidence + script + audit doc landing SHA: <filled on next commit>
-Trailer commit:                                   <filled on next commit>
+Probe evidence + script + audit doc landing SHA: 02e7dbd
+Trailer commit:                                   <appended in the same commit as this update>
 ```
 
 ## §Q16 Q281.3-ε decision gate
