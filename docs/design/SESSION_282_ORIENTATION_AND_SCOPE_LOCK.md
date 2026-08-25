@@ -2232,38 +2232,509 @@ and pre-observation.
 
 # §21 Slice 282.2 — Decision gate (baseline lock complete)
 
-**HALT.** Current-state F&F v1 baseline is locked at
-A/B/C/D/E = 60/60/100/40/80%, weak-CONTROL = 0%,
-substrate = 12 Ep / 3 mem, executor SHA `8b0290d`.
+**RESOLVED.** Chris + ChatGPT accepted the current-state
+baseline, accepted Claude's recommendation to treat the
+Q281.3-ε → current delta as prior-context only (NOT counted
+as formal Q282.2 support), authorized a **zero-provider-
+spend methodology recalibration** before post-baseline
+observation begins, and continued to WITHHOLD authorization
+for Chris's first natural gesture pending the recalibration.
 
-**Unexpected finding surfaced:** current F&F baseline
-already matches Patch's Workshop distribution on 4 of 6
-axes (see §20.7). This changes the interpretability of the
-Q282.2 SUPPORT criterion (see §20.13.1) and raises a
-methodological question about whether the criterion should
-be re-locked BEFORE the first Chris gesture.
+Recalibration lands in §22. Historical §18.8 criteria are
+preserved verbatim above; §22 supersedes them explicitly
+for all post-T0 evidence.
 
-**Nothing in the baseline suggests the loop is broken or
-unsafe** (§20.13.3). Chris's first natural dogfood gesture
-would be SAFE to proceed with from an engineering
-standpoint. The methodological concerns are about how to
-INTERPRET future evidence, not about whether the loop can
-be operated.
+---
 
-**Awaiting Chris + ChatGPT review** of:
+# §22 Slice 282.2 — Zero-spend methodology recalibration
 
-1. §20.7 comparison table + §20.13 interpretability
-   concerns.
-2. Whether to leave §18.8.1 SUPPORT criterion untouched
-   or re-lock it BEFORE the first Chris gesture.
-3. Any other adjustments to the §18 protocol in light of
-   the baseline.
-4. Authorization for Chris's first natural gesture
-   (§18.10) — which remains UNAUTHORIZED until this
-   review.
+## §22.1 Framing (LOCKED)
 
-No first natural operator gesture, no code changes, no
-further provider spend triggered by this slice.
+This recalibration occurs:
+
+* **AFTER** observing the T0 current-state v1 baseline
+  (§20).
+* **BEFORE** observing ANY post-T0 longitudinal dogfood
+  (no Chris SPA gesture yet, no new composition).
+* **because** the pre-registered §18.8.1 SUPPORT
+  criterion — "v1 shifts TOWARD Patch's Workshop shape
+  on ≥ 2 axes with strict-yes deltas of ≥ +10 points" —
+  is partially **non-identifiable** at the observed
+  baseline: current F&F already matches PW on A (60%),
+  B (60%), C (100%), E (80%), and weak-CONTROL (0%),
+  leaving meaningful "toward-PW" headroom only on D
+  (40% vs PW 20%).
+
+The pre-registered §18.8 lock is NOT retroactively
+declared wrong. It was defensible at protocol-design
+time; the baseline revealed a ceiling assumption that
+did not hold. This is standard pre-observation
+recalibration in response to an unexpected calibration
+finding, not history-rewrite.
+
+The historical 11 Ep / 1 mem → current 12 Ep / 3 mem
+delta remains **note-only context (§20.10 item 1)** and
+does NOT count toward revised Q282.2 support.
+
+Post-T0 evidence is governed EXCLUSIVELY by the revised
+§22.4-§22.6 criteria below.
+
+## §22.2 Patch's Workshop — reframed reference role (LOCKED)
+
+Patch's Workshop remains the **mature/rich comparison
+reference** — the specimen that showed a rich substrate
+CAN protect procedural collapse (Q281.3-ξ) and that
+character-driven Episode grammar produces 100%
+complication rate (Q281.3-ζ).
+
+**"Fox & Flour becomes numerically identical to Patch's
+Workshop" is EXPLICITLY NOT the definition of Q282.2
+success.**
+
+Q282.2 asks whether normal operator use causes Fox &
+Flour's **own** continuity to become increasingly
+integrated into future story possibilities and execution.
+That is a Fox-&-Flour-internal question. PW numerics are
+guardrails and reference values, not targets.
+
+## §22.3 Continuity-integration rubric (LOCKED)
+
+Applied to any v1 next-Episode suggestion set (baseline
+and future checkpoints). Category assignment is
+per-suggestion; aggregates roll up.
+
+### 22.3.1 Categorical scale
+
+* **CI-0 — no meaningful continuity use.** Suggestion
+  could apply to any bakery world. No specific reference
+  to F&F memories, prior Episodes, or established
+  threads.
+* **CI-1 — lexical / reference-only continuity.**
+  Suggestion mentions a topic/theme keyword from prior
+  Episodes/memories (e.g., "the mascot", "the closing
+  routine") without integrating the memory's specific
+  content or state. Adjacency, not structural use.
+* **CI-2 — structural use of ONE remembered event/thread.**
+  Suggestion uses one specific remembered memory or
+  prior Episode arc as a genuine scene mechanic — the
+  memory's specific content shapes what the scene tests,
+  callbacks, or resolves.
+* **CI-3 — structural combination of MULTIPLE remembered
+  threads.** Suggestion integrates two or more specific
+  remembered memories or Episode arcs into a single
+  scene premise where each contributes structurally.
+* **CI-4 — remembered state turned into a NEW
+  consequence, complication, or scene-test.** Highest
+  tier: the suggestion uses one or more memories as
+  SOURCE MATERIAL for a novel scene where the memory's
+  earlier state creates genuine narrative pressure
+  (stress-tests / breaks / complicates / contradicts /
+  evolves the remembered state). CI-4 may coincide with
+  CI-3 (multi-thread) but does not require it.
+
+### 22.3.2 Per-suggestion fields (recorded alongside CI)
+
+* `distinct_threads_used`: names of memories or
+  Episode-arcs referenced structurally.
+* `integration_shape`: one-line description of HOW
+  memories are used (test / callback / callback +
+  complication / stress-test / etc.).
+
+### 22.3.3 Aggregate metrics (per checkpoint)
+
+* **Structural rate:** count of CI-2+ over sample size.
+* **Multi-thread rate:** count of CI-3+ over sample size.
+* **Consequence-generation rate:** count of CI-4 over
+  sample size.
+* **Distinct-thread diversity:** unique memories +
+  Episode-arcs referenced across the sample (union).
+* **Thread concentration:** fraction of continuity-use
+  suggestions clustering on the single most-referenced
+  thread (Herfindahl-lite).
+
+### 22.3.4 Classifier discipline
+
+Classification is applied by human review of each
+suggestion body against F&F's live substrate at the
+checkpoint's execution time. Marginal cases resolved
+conservatively (assign LOWER tier when uncertain).
+Rubric is frozen at this commit — future checkpoints
+apply the same category definitions.
+
+## §22.4 T0 baseline continuity-integration classification (LOCKED)
+
+Applied to the 15 T0 v1 suggestions (§20.4) using ONLY
+the current substrate: F&F memories `abac5486` (M1
+cooperation clause), `fa35eb8f` (M2 community-outreach
+joke), `73acdfc0` (M3 mascot want); plus F&F Episodes
+E1-E12 as continuity threads.
+
+| # | CI | Threads used | Integration shape |
+|---|-----|--------------|-------------------|
+| 1.1 | **CI-3** | M3 (mascot want), E9/E12 (baking competition) | Customer projects a role onto mascot; two threads combined |
+| 1.2 | **CI-2** | E6 (haunted-bakery theory) | Unexplained loaf tests the theory |
+| 1.3 | **CI-2** | E12 (celebration cake customer) | Continuation with added last-minute complication |
+| 1.4 | **CI-4** | M3 (mascot) + M1 (closing routine) | Mascot arrival stress-tests the routine — multi-thread + consequence generation |
+| 1.5 | CI-0 | — | Generic bakery premise |
+| 2.1 | **CI-2** | M3 (mascot want) | External neighborhood test of mascot ideas |
+| 2.2 | **CI-2** | E12 (celebration cake) | Organizer visit adds regulatory complication |
+| 2.3 | **CI-3** | E6 (haunted) + E8 (freezer strangeness) | Two prior-Episode threads combined into investigation trigger |
+| 2.4 | **CI-4** | M1 (cooperation clause) | Direct stress-test of "what they need" rule via last-minute customer arriving at departure |
+| 2.5 | CI-0 | — | Generic tasting premise |
+| 3.1 | **CI-2** | M3 (mascot want) | (verbatim duplicate of 2.1) |
+| 3.2 | **CI-3** | E12 (cake customer) + E9 (competition entry) | Genuine dilemma from combining two prior threads |
+| 3.3 | **CI-2** | E6 (haunted theory) | Extends theory with new evidence (state evolution, but single thread — conservative CI-2) |
+| 3.4 | **CI-4** | M1 (cooperation clause) | Quotes "what they need" verbatim; exposes latent interpretation disagreement — pure state-turned-into-scene-test |
+| 3.5 | CI-0 | — | Generic mystery-customer premise |
+
+### 22.4.1 T0 aggregate continuity metrics (LOCKED)
+
+| metric | count / n=15 | % |
+|--------|--------------|---|
+| CI-0 | 3 | 20% |
+| CI-1 | 0 | 0% |
+| CI-2 | 6 | 40% |
+| CI-3 | 3 | 20% |
+| CI-4 | 3 | 20% |
+| **Structural rate (CI-2+)** | **12** | **80%** |
+| **Multi-thread rate (CI-3+)** | **6** | **40%** |
+| **Consequence rate (CI-4)** | **3** | **20%** |
+
+**Distinct thread coverage** across all 15 suggestions
+(union of `distinct_threads_used`):
+
+| thread | referenced by | count |
+|--------|---------------|-------|
+| M3 mascot want (`73acdfc0`) | 1.1, 1.4, 2.1, 3.1 | 4 |
+| E12 celebration cake customer (Ep `f4faa13b`) | 1.1, 1.3, 2.2, 3.2 | 4 |
+| M1 cooperation clause (`abac5486`) | 1.4, 2.4, 3.4 | 3 |
+| E6 haunted-bakery theory (Ep `2e58568a`) | 1.2, 2.3, 3.3 | 3 |
+| E9 competition entry (Ep `ebd099c6`) | 1.1, 3.2 | 2 |
+| E8 freezer strangeness (Ep `07cacf51`) | 2.3 | 1 |
+| **M2 community-outreach joke (`fa35eb8f`)** | **none** | **0** |
+
+* **Distinct-thread diversity:** 6 unique threads referenced (of 3 memories + 12 Episodes = 15 candidate threads; ~40% of substrate surface referenced across 15 suggestions).
+* **Thread concentration:** most-referenced threads (M3, E12) each hit 4/12 continuity-using suggestions = 33%. Not pathological concentration; distributed across multiple threads.
+* **M2 zero references:** the `dialogue_callback`-kind
+  memory (specific one-off joke line about "community
+  outreach after closing") is NOT surfaced by v1 in
+  any of the 15 suggestions. Consistent with M2 being
+  a scene-callback line rather than a scene-testable
+  state; v1 preferentially uses event/promise-shaped
+  memory content that carries forward story pressure.
+
+### 22.4.2 T0 continuity-integration key observations
+
+1. **Continuity is already high at baseline:** 80%
+   structural rate; 40% multi-thread; 20% consequence-
+   generation. This is not a substrate with zero
+   continuity use to enrich; it is a substrate with
+   substantial continuity use already.
+2. **All 3 promoted memories are visible in v1
+   context, but with strong shape-preference:**
+   event/promise-shaped memories (M1, M3) get
+   structural use; dialogue_callback-shaped memory (M2)
+   gets zero. Suggests promoted memory SHAPE, not just
+   count, governs v1 utility. Consistent with the
+   SESSION 281 §T finding that shape matters more than
+   volume.
+3. **All 3 CI-4 candidates use MEMORIES** (M1 twice,
+   M3+M1 once), not just prior Episodes. Direct evidence
+   the promoted-memory subset is disproportionately
+   generative of scene-test topics vs the broader
+   Episode-title context.
+4. **Thread coverage skewed toward RECENT substrate:**
+   the two most-referenced threads (M3, E12) are the
+   most recent additions to the substrate. Fresh
+   promotions have larger footprint than older ones —
+   an accumulation-side observation with implications
+   for how future checkpoints should be interpreted.
+
+## §22.5 Structural-quality axes reframed as guardrails (LOCKED)
+
+The A/B/C/E axes are ALREADY AT PW's reference values
+(A/B = 60% = PW; C = 100% = PW; E = 80% = PW), and
+weak-CONTROL is at 0% (= PW). These are STRUCTURAL
+STRENGTHS the loop must PRESERVE, not axes with room to
+move further.
+
+The D axis (F&F 40% vs PW 20%) retains genuine
+directional headroom; movement toward the mature
+reference remains meaningful there.
+
+### 22.5.1 Guardrail thresholds (LOCKED regression tolerances)
+
+Any post-T0 checkpoint measurement (n=15 v1 sample)
+that BREACHES ANY of these constitutes REGRESSION on
+that axis:
+
+| axis | T0 | guardrail (regression breach) | rationale |
+|------|-----|-------------------------------|-----------|
+| A on-stage cast subject | 60% | **< 55%** | -5pp tolerance for n=15 binomial noise (~±13pp raw noise; tightening because A is at PW-parity) |
+| B cast action verb | 60% | **< 55%** | same rationale as A |
+| C explicit complication | 100% | **< 90%** | strong preservation; any drop below 90% is meaningful given T0 saturation |
+| E dramatizable | 80% | **< 70%** | -10pp tolerance |
+| Weak-CONTROL | 0% | **> 5%** | historical Q281.3-ε was 7%; return above 5% signals reversion |
+
+### 22.5.2 D axis — directional target (LOCKED)
+
+* T0 D = 40%
+* PW reference D = 20%
+* Directional target: any post-T0 checkpoint where
+  D ≤ 30% constitutes movement toward the mature
+  reference. Not required; measured.
+* D > 45% would constitute directional drift AWAY
+  from the mature reference — noted as an observation
+  but NOT a regression breach on its own (D was
+  40% at T0 and permits some noise-level variance).
+
+## §22.6 Revised SUPPORT / NO-MOVEMENT / REGRESSION / CONFOUNDED (LOCKED — supersedes §18.8 for post-T0 evidence)
+
+### 22.6.1 SUPPORT (revised)
+
+Q282.2 SUPPORTS Hθ IFF a future checkpoint after ≥ 2
+additional Chris compositions shows ALL of:
+
+1. **Structural preservation:** all §22.5.1 guardrails
+   held (no A/B/C/E/weak-CONTROL breach) at the
+   checkpoint's v1 re-sample.
+2. **Continuity-integration growth OR maintenance-plus-
+   diversity:** at least ONE of:
+   * CI-4 (consequence-generation) rate ≥ 30% (up from
+     T0's 20%), OR
+   * Multi-thread rate (CI-3+) ≥ 50% (up from T0's 40%),
+     OR
+   * Distinct-thread diversity grows to include ≥ 3 of
+     the post-T0 promoted memories (i.e., new mems Chris
+     promotes during dogfood become v1-referenced).
+3. **Story-execution evidence:** ≥ 2 of Chris's
+   post-T0 compositions read event-shaped with
+   structural memory alignment (Q281.3-α axes applied to
+   `synthesized_brief`).
+4. **Chris subjective judgment:** F&F stories feel
+   richer or more alive, without prompting from the
+   research layer.
+
+All four must hold. Absence of any one weakens SUPPORT
+but does not immediately convert to NO-MOVEMENT — see
+§22.6.5 evidence-weighting.
+
+### 22.6.2 NO MOVEMENT (revised)
+
+Q282.2 concludes NO MEANINGFUL MOVEMENT IFF at a
+checkpoint after ≥ 5 additional Chris compositions:
+
+* All §22.5.1 guardrails held (structural strengths
+  preserved), AND
+* Continuity-integration metrics within ±5pp of T0 on
+  structural rate, multi-thread rate, and consequence-
+  generation rate, AND
+* Distinct-thread diversity ≤ T0 + 1 (substrate grew
+  but v1 didn't broaden usage), AND
+* Chris subjective judgment: no felt change.
+
+NOTE: preservation is itself a POSITIVE result
+indicating the loop is non-destructive at operator
+scale. It is NOT support for Hθ but it is NOT a
+failure either.
+
+### 22.6.3 REGRESSION (revised)
+
+Q282.2 concludes REGRESSION IFF any of:
+
+* Any §22.5.1 structural guardrail breached at any
+  post-T0 checkpoint.
+* Structural rate (CI-2+) drops below 65% (from T0's
+  80%) — v1 is losing continuity integration despite
+  substrate growth.
+* Distinct-thread diversity SHRINKS (v1 concentrates
+  on FEWER threads while substrate grows) — the
+  pathological reading of §16.4 / §20.8.1 low-variance
+  patterns.
+* Thread concentration above 60% on any single thread
+  (v1 collapses onto one recent memory) — mirror of
+  the shrink concern.
+* Story-execution rubric shows more procedural runs
+  than in the SESSION 281 §T record.
+* Chris subjective judgment: F&F stories feel worse or
+  more repetitive.
+
+Regression triggers an immediate scope-lock pause and
+audit — SESSION 281 §T7 assumed the loop is at worst
+no-op, not harmful.
+
+### 22.6.4 UNINTERPRETABLE / CONFOUNDED
+
+Unchanged from §18.8.4. Any provider-model change,
+prompt-side change to v1 or curator, retrieval /
+synthesis / verifier code change, admin-panel substrate
+mutation, cast/K2/business_brief edits, Universe brief
+edits, or Chris self-prescribing topics for
+experimental reasons invalidates checkpoint
+comparisons across the confound boundary.
+
+### 22.6.5 Evidence-weighting rule (new)
+
+The pre-registered §22.6.1 SUPPORT criterion sets a
+STRONG-EVIDENCE threshold. Q282.2 evidence may accrue
+in weaker forms first:
+
+* A single composition where Chris's own reaction is
+  strongly positive is EMERGING evidence.
+* A single checkpoint where CI-4 rate rises materially
+  but Chris's subjective judgment hasn't been polled
+  yet is EMERGING evidence.
+* A single checkpoint that preserves structure and
+  shows new threads promoted is EMERGING evidence.
+
+**Emerging evidence is recorded verbatim and
+preserved** even when it does not yet cross the
+SUPPORT threshold. Absence of strong-evidence
+threshold satisfaction after ≥ 5 compositions is
+NO MOVEMENT (§22.6.2); presence of continual emerging
+evidence WITHOUT strong-evidence satisfaction is
+"INSUFFICIENTLY-CONVERGED" — a legitimate third
+disposition to report at that checkpoint.
+
+**Do NOT reduce Q282.2 to a memory-count target.**
+The "≥ 5 additional Chris compositions" in §22.6.2 is
+a checkpoint milestone for concluding NO MOVEMENT,
+not a required volume for SUPPORT.
+
+## §22.7 Historical criteria preserved for audit trail
+
+§18.8.1-§18.8.4 remain in this document as the
+pre-baseline lock. They are SUPERSEDED for post-T0
+evidence by §22.6 above. Nothing in the historical lock
+is retracted; the recalibration explicitly extends and
+reframes based on the T0 observation, per §22.1.
+
+## §22.8 Methodological concerns
+
+1. **Recalibration timing.** This recalibration
+   happens post-T0-observation. Any future scope-lock
+   discipline benefit requires that no further
+   recalibration occurs post-first-Chris-gesture. The
+   §22.6 criteria are locked HERE and future observation
+   will honor them or reach a decision boundary they
+   name (SUPPORT / NO MOVEMENT / REGRESSION /
+   INSUFFICIENTLY-CONVERGED / CONFOUNDED). Do NOT tune
+   thresholds after seeing checkpoint data.
+2. **T0 CI classification is fixed.** The category
+   assignments in §22.4 are LOCKED. If a future checkpoint
+   compares to T0's continuity metrics, T0 is what §22.4
+   says it is — no revision.
+3. **CI classifier drift risk.** The rubric §22.3 is
+   qualitative; different classifier applications may
+   yield ±5-10pp variance on structural/multi-thread/
+   consequence rates. Mitigation: same Claude applies
+   the rubric at each checkpoint using the same
+   category definitions; disagreements are surfaced
+   explicitly rather than silently resolved.
+4. **Small-n binomial noise on quantitative axes.**
+   n=15 v1 samples give ~±13pp raw binomial noise. The
+   §22.5.1 guardrails are calibrated at -5 to -10pp
+   from T0 precisely because tighter thresholds would
+   fire on noise alone. This trades sensitivity for
+   specificity; deliberate.
+5. **PW's own numerical values (60/60/100/20/80/0)
+   are themselves an n=15 estimate.** Not a
+   population parameter. The "F&F matches PW" framing
+   is descriptive of two n=15 measurements at
+   different substrate states; not proof of population
+   equivalence. §22.2 preserves this by treating PW
+   as reference, not target.
+6. **Chris subjective judgment carries load.** Two of
+   the §22.6.1 SUPPORT criteria (structural + story-
+   execution) are rubric-quantitative; the other two
+   (continuity growth, Chris subjective) require
+   qualitative judgment. This is intentional — the
+   product question is operator experience, not
+   classifier metrics. But it means SUPPORT is
+   partially judgment-bound; be honest about that.
+
+## §22.9 Effect on first-natural-gesture safety
+
+**Before recalibration:** §20.13.3 noted the loop was
+engineering-safe to operate but the §18.8.1 SUPPORT
+criterion was interpretability-broken.
+
+**After recalibration:** the §22.6 criteria are
+methodologically identifiable at the current baseline.
+Every axis has either measurable guardrails (§22.5.1),
+directional room (D-axis §22.5.2), or growth thresholds
+(§22.6.1 continuity + story-execution). Chris's first
+natural gesture is now **cleanly interpretable**:
+whatever he does, the resulting substrate delta feeds a
+checkpoint that maps unambiguously to SUPPORT /
+NO MOVEMENT / REGRESSION / INSUFFICIENTLY-CONVERGED
+/ CONFOUNDED.
+
+Engineering safety was never in question. Interpretive
+safety is now established.
+
+## §22.10 Slice 282.2 recalibration landing SHA
+
+* Zero-spend recalibration + T0 continuity classification
+  + revised criteria: **this commit's SHA** (appended
+  in trailer).
+* No new experiment data. No new provider spend.
+* T0 raw artifact unchanged
+  (`docs/design/session282_experiment_data/q282_2_v1_baseline.json`).
+
+---
+
+# §23 Slice 282.2 — Decision gate (recalibration complete)
+
+**HALT.** Zero-spend recalibration complete.
+
+Revised locked criteria (§22.5 + §22.6) supersede §18.8
+for all post-T0 evidence. Historical §18.8 preserved as
+audit trail per §22.7.
+
+**T0 continuity-integration classification (§22.4):**
+
+* Structural rate (CI-2+): **80%**
+* Multi-thread rate (CI-3+): **40%**
+* Consequence-generation rate (CI-4): **20%**
+* Distinct-thread diversity: **6** unique threads
+  referenced across 15 suggestions
+* Thread concentration: **33%** on most-referenced
+  threads (M3, E12) — not pathological
+* Notable: **M2 dialogue-callback memory is not
+  referenced in any of the 15 v1 suggestions**;
+  event/promise-shaped memories (M1, M3) get
+  structural use. Shape-over-count evidence.
+* Notable: **All 3 CI-4 candidates use MEMORIES, not
+  just Episode-titles.** Direct evidence promoted
+  memories are disproportionately generative of
+  scene-test topics.
+
+**Revised SUPPORT / NO MOVEMENT / REGRESSION /
+INSUFFICIENTLY-CONVERGED / CONFOUNDED are LOCKED
+before any post-baseline evidence.** §22.8 explicitly
+disallows further tuning after seeing checkpoint data.
+
+**Methodological concerns:** classifier-drift risk,
+n=15 binomial noise, PW-as-reference-not-target
+framing, and Chris-subjective-judgment load. All
+recorded (§22.8) and accepted as costs of the
+recalibration design.
+
+**Chris's first natural gesture is now cleanly
+interpretable and RECOMMENDED** (§22.9). Engineering
+safety was never in question; interpretive safety is
+now established.
+
+**Awaiting Chris + ChatGPT** authorization for the
+first natural Chris gesture (§18.10) OR any further
+protocol adjustments. Do NOT begin without explicit
+Chris + ChatGPT green-light on this gate.
+
+No provider spend, no code changes, no substrate
+mutation, no Chris SPA gesture triggered by this
+recalibration.
+
 
 
 
