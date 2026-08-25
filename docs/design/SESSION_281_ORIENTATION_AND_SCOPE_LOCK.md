@@ -3770,8 +3770,8 @@ Chris's Q281.3-ε authorization.
 ## §R15 Q281.3-ζ landing SHA
 
 ```
-Probe evidence + audit doc landing SHA: <filled on next commit>
-Trailer commit:                          <filled on next commit>
+Probe evidence + audit doc landing SHA: 927cdce
+Trailer commit:                          <appended in the same commit as this update>
 ```
 
 ## §R16 Q281.3-ζ decision gate
