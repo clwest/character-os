@@ -30,6 +30,7 @@ import { CompositionStatusRoute } from "@/routes/compositions/$id";
 import { ConversationChatRoute } from "@/routes/conversations/$id";
 import { SignatureRoute } from "@/routes/signature";
 import { AboutRoute } from "@/routes/about";
+import { HowItWorksRoute } from "@/routes/how-it-works";
 import { BrandV3PreviewRoute } from "@/routes/_dev/brand-v3-preview";
 import { Layout } from "@/routes/_layout";
 
@@ -276,6 +277,11 @@ export function App() {
               in the header on every authenticated page AND from
               sign-in / sign-up. */}
           <Route path="/about" element={<AboutRoute />} />
+          {/* /how-it-works is public — same posture as /about.
+              Reachable from the "How it works" link in SiteHeader
+              on every page. Mirrors signal-studio's HowItWorksPage
+              pattern (7 sections, truth contract). */}
+          <Route path="/how-it-works" element={<HowItWorksRoute />} />
           {/* V3.2 (SESSION 209) — editorial primitives showcase.
               Dev-only reference page; no auth gate; no real data. */}
           <Route path="/dev/brand-v3" element={<BrandV3PreviewRoute />} />

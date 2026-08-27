@@ -89,7 +89,19 @@ function SiteHeader({ compact }: { compact: boolean }) {
             {BRAND.product.subtitle}
           </span>
         </Link>
-        <ParentBrandChip />
+        <div className="flex items-center gap-4">
+          {/* Public explainer — mirrors signal-studio's discreet
+              "How it works" header link. Visible on every page so
+              a first-time visitor can land here from anywhere. */}
+          <Link
+            to="/how-it-works"
+            className="hidden font-mono text-[10px] uppercase tracking-[0.28em] text-fog transition-colors hover:text-gold sm:inline-flex"
+            data-testid="header-how-it-works"
+          >
+            How it works
+          </Link>
+          <ParentBrandChip />
+        </div>
       </div>
       {/* Hairline-gold divider — replaces the generic border-b
        * with the editorial fade-in/out gradient. */}
