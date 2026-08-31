@@ -1,5 +1,37 @@
 # Case Study 03 — YouTube ingest silently returned nothing
 
+> **CORRECTION — 2026-08-31.** The account below is wrong about the
+> mechanic, and the correction is kept in place rather than rewritten so
+> the error stays visible.
+>
+> trafilatura did **not** return an empty string, and no document was
+> stored with zero chunks. It returned YouTube's navigation boilerplate
+> ("About Press Copyright Contact us Creators Advertise Developers
+> Terms…") as "main content". That text was chunked, embedded and
+> stored successfully. The damage was not a missing document — it was a
+> single short generic chunk sitting at distance ~0.85 from almost any
+> query, degrading retrieval across the whole workspace.
+>
+> Primary sources, all three of which disagree with this write-up:
+> the module docstring in `shell/apps/embeddings/url_fetch.py` (K7.x,
+> SESSION 174), the module docstring in
+> `shell/apps/embeddings/youtube_extractor.py` (K7.x v2, SESSION 175),
+> and the live boilerplate-signature regex between them.
+>
+> Everything in "Decision" and "Implementation change" below is
+> substantially right; the per-host router and the post-extraction
+> boilerplate check are what actually shipped. Only the diagnosis is
+> wrong.
+>
+> Probable cause of the error: SESSION 174 described its own work as
+> closing "the silent-failure surface", and this write-up was
+> reconstructed later from that label rather than from the behaviour.
+> The name outlived the facts.
+>
+> No verifier here would have caught this. It contains no stale number
+> — it is a coherent, confident, wrong story. See
+> `career/writing/FACT_CHECK_2026-08-31.md`.
+
 **Date:** SESSION 175 (K7.x v2).
 **Systems:** `shell/apps/embeddings/ingestion.py`, knowledge
 retrieval.
@@ -61,7 +93,10 @@ teammate correctly cited the video content in
 
 ## Lasting rule
 
-**Silence is a bug.** An ingest that says "processed" while
+**Silence is a bug** — as originally written. The truer rule, given
+what actually happened: **a plausible answer is worse than an empty
+one**, because an empty result is loud and a well-formed wrong one is
+invisible. An ingest that says "processed" while
 capturing zero bytes is worse than one that says "failed".
 Every ingest path now has a positive-content assertion; if the
 extractor returns empty, the pipeline surfaces it.
