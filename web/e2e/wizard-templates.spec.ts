@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { createWizardWorld } from "./helpers/wizard";
 
 // SESSION 133 — Wizard Step 1 template tile picker (wizard slice 10).
 //
@@ -70,6 +71,7 @@ test.describe("wizard template tiles (slice 10)", () => {
       "aria-pressed",
       "false",
     );
+    await createWizardWorld(page, "Wizard template");
 
     // Advance through Steps 2 + 3 → confirm the template's
     // visual_subject + voice_preset reached the right places.

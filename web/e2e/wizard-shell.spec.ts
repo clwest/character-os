@@ -1,25 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { createWizardWorld } from "./helpers/wizard";
 
-// SESSION 128 — Wizard scaffold (wizard slice 5).
-//
-// Drives the wizard shell behind the ?wizard=1 query gate. The
-// scaffold itself doesn't create a spokesperson — slices 6-9 fill
-// each step's body in. What this spec verifies:
-//
-//   - All 4 steps render their kicker/title/body
-//   - Step indicator reflects the current step (pill highlight +
-//     aria-current)
-//   - Next is gated on canAdvance (Step 1 needs a name)
-//   - Back navigation works
-//   - State is preserved across forward + backward navigation
-//   - The placeholder Create button on Step 4 stays disabled (until
-//     slice 9 wires the real submit)
-//   - The legacy form at /spokespeople/new (no query param) is
-//     unchanged
-//
-// The wizard is behind an opt-in flag (?wizard=1) so the existing
-// create-spokesperson specs stay green. When slice 9 ships, the
-// default flips + this spec gets a happy-path companion.
+// Browser coverage for the current default four-step wizard.
+// Identity requires a name, a sufficiently long brief, and an
+// explicitly selected World; later steps preserve state on back.
 
 const PASSWORD = "playwright-test-pw-x4q9z!";
 
@@ -34,7 +18,7 @@ async function signUp(page: import("@playwright/test").Page) {
   ]);
 }
 
-test.describe("wizard scaffold (slice 5)", () => {
+test.describe("wizard shell", () => {
   test("4-step navigation + state preservation", async ({ page }) => {
     await signUp(page);
 
@@ -74,6 +58,9 @@ test.describe("wizard scaffold (slice 5)", () => {
     await briefInput.fill(
       "Sells artisan bicycle bells to small bike shops.",
     );
+    // Identity alone is insufficient: the operator must choose a World.
+    await expect(next).toBeDisabled();
+    await createWizardWorld(page, "Wizard shell");
     await expect(next).toBeEnabled();
 
     // Advance to Step 2.

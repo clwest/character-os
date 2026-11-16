@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { createWizardWorld } from "./helpers/wizard";
 
 // SESSION 132 — Wizard Step 4 (Confirm + submit) (wizard slice 9).
 //
@@ -13,9 +14,8 @@ import { test, expect } from "@playwright/test";
 //   6. Step 4 — review panel renders all fields + Create button
 //      enabled
 //   7. Click Create → POST /api/spokespeople/ fires → row lands →
-//      navigate to /spokespeople/{id}
-//   8. Detail page shows the bound spokesperson with all the
-//      values we typed
+//      welcome screen appears
+//   8. Skip onboarding → detail page shows the saved spokesperson
 //
 // Also a tier-limit error-path test (commented for now — the
 // Starter tier limit doesn't kick in until 3 spokespeople; would
@@ -60,6 +60,7 @@ test.describe("wizard step 4 — Confirm + submit (slice 9)", () => {
     await expect(suggestion).toBeVisible({ timeout: 5_000 });
     await page.getByTestId("wizard-tone-suggestion-accept").click();
     await expect(page.getByTestId("wizard-tone-select")).toHaveValue("tutor");
+    await createWizardWorld(page, "Wizard submit");
 
     await page.getByTestId("wizard-next").click();
     await expect(page.getByTestId("wizard-step-2")).toBeVisible();
@@ -107,8 +108,13 @@ test.describe("wizard step 4 — Confirm + submit (slice 9)", () => {
           resp.request().method() === "POST" &&
           resp.ok(),
       ),
-      page.waitForURL(/\/spokespeople\/[0-9a-f-]+$/),
+      page.waitForURL(/\/spokespeople\/[0-9a-f-]+\/welcome$/),
       submit.click(),
+    ]);
+    await expect(page.getByTestId("welcome-heading")).toContainText(name);
+    await Promise.all([
+      page.waitForURL(/\/spokespeople\/[0-9a-f-]+$/),
+      page.getByTestId("welcome-skip").click(),
     ]);
 
     // 8) Detail page — assert all the values persisted
@@ -147,6 +153,7 @@ test.describe("wizard step 4 — Confirm + submit (slice 9)", () => {
     await page
       .getByTestId("wizard-brief-input")
       .fill("A sufficiently long brief that satisfies the gate.");
+    await createWizardWorld(page, "Wizard back edit");
     await page.getByTestId("wizard-next").click();
     const tinyPng = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",

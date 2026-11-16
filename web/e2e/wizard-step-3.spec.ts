@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { createWizardWorld } from "./helpers/wizard";
 
 // SESSION 131 — Wizard Step 3 (Voice) body (wizard slice 8).
 //
@@ -44,6 +45,7 @@ async function signUpAndReachStep3(
   await page
     .getByTestId("wizard-brief-input")
     .fill("Sells artisan bicycle bells to small bike shops.");
+  await createWizardWorld(page, "Wizard step 3");
   await page.getByTestId("wizard-next").click();
   await expect(page.getByTestId("wizard-step-2")).toBeVisible();
 
